@@ -20,7 +20,7 @@ module LogStash
              :batch_size => LogStash::SETTINGS.get("pipeline.batch.size"),
              :batch_delay => LogStash::SETTINGS.get("pipeline.batch.delay"),
            },
-          }.merge(LogStash::SETTINGS.get("xpack.monitoring.enabled") ?
+          }.merge(LogStash::SETTINGS.registered?("xpack.monitoring.enabled") && LogStash::SETTINGS.get("xpack.monitoring.enabled") ?
                   {:monitoring => {
                     :hosts => LogStash::SETTINGS.get("xpack.monitoring.elasticsearch.hosts"),
                     :username => LogStash::SETTINGS.get("xpack.monitoring.elasticsearch.username")
