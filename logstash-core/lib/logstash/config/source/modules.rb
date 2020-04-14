@@ -29,7 +29,7 @@ module LogStash module Config module Source
 
       pipelines = LogStash::Config::ModulesCommon.pipeline_configs(@settings)
       pipelines.map do |hash|
-        PipelineConfig.new(self, hash["pipeline_id"].to_sym,
+        org.logstash.config.ir.PipelineConfig.new(self.class, hash["pipeline_id"].to_sym,
           org.logstash.common.SourceWithMetadata.new("module", hash["alt_name"], 0, 0, hash["config_string"]),
           hash["settings"])
       end

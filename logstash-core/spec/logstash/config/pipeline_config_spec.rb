@@ -15,10 +15,11 @@
 # specific language governing permissions and limitations
 # under the License.
 
-require "logstash/config/pipeline_config"
+# require "logstash/config/pipeline_config"
 require "logstash/config/source/local"
+require "support/helpers"
 
-describe LogStash::Config::PipelineConfig do
+describe "PipelineConfig tests" do
   let(:source) { LogStash::Config::Source::Local }
   let(:pipeline_id) { :main }
   let(:ordered_config_parts) do
@@ -36,14 +37,14 @@ describe LogStash::Config::PipelineConfig do
   let(:unordered_config_parts) { ordered_config_parts.shuffle }
   let(:settings) { LogStash::SETTINGS }
 
-  subject { described_class.new(source, pipeline_id, unordered_config_parts, settings) }
+  subject { Java::OrgLogstashConfigIr::PipelineConfig.new(source, pipeline_id, unordered_config_parts, settings) }
 
   it "returns the source" do
     expect(subject.source).to eq(source)
   end
 
   it "returns the pipeline id" do
-    expect(subject.pipeline_id).to eq(pipeline_id)
+    expect(subject.pipeline_id.to_sym).to eq(pipeline_id)
   end
 
   it "returns the sorted config parts" do
@@ -59,17 +60,17 @@ describe LogStash::Config::PipelineConfig do
   end
 
   it "records when the config was read" do
-    expect(subject.read_at).to be <= Time.now
+    expect(subject.read_at.to_time).to be <= Time.now
   end
 
   it "does object equality on config_hash and pipeline_id" do
-    another_exact_pipeline = described_class.new(source, pipeline_id, ordered_config_parts, settings)
+    another_exact_pipeline = Java::OrgLogstashConfigIr::PipelineConfig.new(source, pipeline_id, ordered_config_parts, settings)
     expect(subject).to eq(another_exact_pipeline)
 
-    not_matching_pipeline = described_class.new(source, pipeline_id, [], settings)
+    not_matching_pipeline = Java::OrgLogstashConfigIr::PipelineConfig.new(source, pipeline_id, [], settings)
     expect(subject).not_to eq(not_matching_pipeline)
 
-    not_same_pipeline_id = described_class.new(source, :another_pipeline, unordered_config_parts, settings)
+    not_same_pipeline_id = Java::OrgLogstashConfigIr::PipelineConfig.new(source, :another_pipeline, unordered_config_parts, settings)
     expect(subject).not_to eq(not_same_pipeline_id)
   end
 
@@ -92,7 +93,7 @@ describe LogStash::Config::PipelineConfig do
   describe "source and line remapping" do
     context "when pipeline is constructed from single file single line" do
       let (:pipeline_conf_string) { 'input { generator1 }' }
-      subject { described_class.new(source, pipeline_id, [org.logstash.common.SourceWithMetadata.new("file", "/tmp/1", 0, 0, pipeline_conf_string)], settings) }
+      subject { Java::OrgLogstashConfigIr::PipelineConfig.new(source, pipeline_id, [org.logstash.common.SourceWithMetadata.new("file", "/tmp/1", 0, 0, pipeline_conf_string)], settings) }
       it "return the same line of the queried" do
         expect(subject.lookup_source(1, 0).getLine()).to eq(1)
       end
@@ -102,7 +103,7 @@ describe LogStash::Config::PipelineConfig do
       let (:pipeline_conf_string) { 'input {
                                        generator1
                                      }' }
-      subject { described_class.new(source, pipeline_id, [org.logstash.common.SourceWithMetadata.new("file", "/tmp/1", 0, 0, pipeline_conf_string)], settings) }
+      subject { Java::OrgLogstashConfigIr::PipelineConfig.new(source, pipeline_id, [org.logstash.common.SourceWithMetadata.new("file", "/tmp/1", 0, 0, pipeline_conf_string)], settings) }
 
       it "return the same line of the queried" do
         expect(subject.lookup_source(1, 0).getLine()).to eq(1)
@@ -110,7 +111,7 @@ describe LogStash::Config::PipelineConfig do
       end
 
       it "throw exception if line is out of bound" do
-        expect { subject.lookup_source(100, -1) }.to raise_exception(IndexError)
+        expect { subject.lookup_source(100, -1) }.to raise_exception(java.lang.IllegalArgumentException)
       end
     end
 
@@ -127,7 +128,7 @@ describe LogStash::Config::PipelineConfig do
           org.logstash.common.SourceWithMetadata.new("file", "/tmp/output", 0, 0, pipeline_conf_string_part2)
         ]
       end
-      subject { described_class.new(source, pipeline_id, merged_config_parts, settings) }
+      subject { Java::OrgLogstashConfigIr::PipelineConfig.new(source, pipeline_id, merged_config_parts, settings) }
 
       it "return the line of first segment" do
         expect(subject.lookup_source(2, 0).getLine()).to eq(2)
@@ -140,7 +141,7 @@ describe LogStash::Config::PipelineConfig do
       end
 
       it "throw exception if line is out of bound" do
-        expect { subject.lookup_source(100, 0) }.to raise_exception(IndexError)
+        expect { subject.lookup_source(100, 0) }.to raise_exception(java.lang.IllegalArgumentException)
       end
     end
 
@@ -155,7 +156,7 @@ describe LogStash::Config::PipelineConfig do
             org.logstash.common.SourceWithMetadata.new("file", "/tmp/output", 0, 0, pipeline_conf_string_part2)
           ]
         end
-        subject { described_class.new(source, pipeline_id, merged_config_parts, settings) }
+        subject { Java::OrgLogstashConfigIr::PipelineConfig.new(source, pipeline_id, merged_config_parts, settings) }
 
         it "shouldn't slide the mapping of subsequent" do
           expect(subject.lookup_source(4, 0).getLine()).to eq(1)

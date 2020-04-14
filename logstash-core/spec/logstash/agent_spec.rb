@@ -85,7 +85,7 @@ describe LogStash::Agent do
 
       it "should delegate settings to new pipeline" do
         expect(LogStash::JavaPipeline).to receive(:new) do |arg1, arg2|
-          expect(arg1).to eq(config_string)
+          expect(arg1.to_s).to eq(config_string)
           expect(arg2.to_hash).to include(agent_args)
         end
         subject.converge_state_and_update

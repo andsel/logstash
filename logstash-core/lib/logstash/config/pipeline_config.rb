@@ -18,7 +18,7 @@
 require "digest"
 
 module LogStash module Config
-  class PipelineConfig
+  class PipelineConfigX
     include LogStash::Util::Loggable
 
     LineToSource = Struct.new("LineToSource", :bounds, :source)

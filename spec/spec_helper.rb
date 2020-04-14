@@ -61,6 +61,7 @@ RSpec.configure do |c|
 
       LogStash::SETTINGS.set("queue.type", "memory")
       LogStash::SETTINGS.set("path.data", temp_directory)
+      LogStash::Config.module_eval { java_import org.logstash.config.ir.PipelineConfig }
 
       LogStash::Util.set_thread_name("RSPEC Example #{example.full_description} (from: `#{example.location}`)") do
         example.run
