@@ -175,7 +175,7 @@ module LogStash
         logger.debug("compiled metrics pipeline config: ", :config => config)
 
         config_part = org.logstash.common.SourceWithMetadata.new("x-pack-metrics", "internal_pipeline_source", config)
-        Java::OrgLogstashConfigIr::PipelineConfig.new(self, PIPELINE_ID.to_sym, [config_part], settings)
+        Java::OrgLogstashConfigIr::PipelineConfig.new(self.class, PIPELINE_ID.to_sym, [config_part], settings)
       end
 
       def generate_pipeline_config(settings)

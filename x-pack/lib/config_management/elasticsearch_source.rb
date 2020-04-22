@@ -125,7 +125,7 @@ module LogStash
           end
         end
 
-        Java::OrgLogstashConfigIr::PipelineConfig.new(self.class.name, pipeline_id.to_sym, [config_part], settings)
+        Java::OrgLogstashConfigIr::PipelineConfig.new(self.class, pipeline_id.to_sym, [config_part], settings)
       end
 
       # This is a bit of a hack until we refactor the ElasticSearch plugins

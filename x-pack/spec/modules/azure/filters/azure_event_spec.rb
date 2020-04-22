@@ -9,6 +9,10 @@ require 'filters/azure_event'
 
 
 describe LogStash::Filters::AzureEvent do
+  before(:all) do
+    LogStash::Config.module_eval { java_import org.logstash.config.ir.PipelineConfig }
+  end
+
   describe "Parses the admin activity log" do
     let(:config) do
       <<-CONFIG
