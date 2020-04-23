@@ -18,7 +18,6 @@
 require "spec_helper"
 require "stud/temporary"
 require "logstash/inputs/generator"
-require "logstash/config/pipeline_config"
 require "logstash/config/source/local"
 require_relative "../support/mocks_classes"
 require "fileutils"

@@ -6,7 +6,6 @@ require "logstash-core"
 require "logstash/agent"
 require "logstash/agent"
 require "monitoring/inputs/metrics"
-require "logstash/config/pipeline_config"
 require "logstash/config/source/local"
 require 'license_checker/x_pack_info'
 require "rspec/wait"

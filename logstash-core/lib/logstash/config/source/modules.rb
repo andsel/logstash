@@ -17,7 +17,6 @@
 
 require "logstash/config/source/base"
 require "logstash/config/modules_common"
-require "logstash/config/pipeline_config"
 
 module LogStash module Config module Source
   class Modules < Base

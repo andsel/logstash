@@ -4,7 +4,6 @@
 
 require "logstash/agent"
 require "monitoring/internal_pipeline_source"
-require "logstash/config/pipeline_config"
 require 'helpers/elasticsearch_options'
 
 module LogStash

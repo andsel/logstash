@@ -2,7 +2,6 @@
 # or more contributor license agreements. Licensed under the Elastic License;
 # you may not use this file except in compliance with the Elastic License.
 
-require "logstash/config/pipeline_config"
 require "logstash/config/source/base"
 require "logstash/config/source_loader"
 require "logstash/outputs/elasticsearch"
