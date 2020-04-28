@@ -64,12 +64,10 @@ public final class PipelineConfig {
 
     @SuppressWarnings({"rawtypes", "unchecked"})
     public PipelineConfig(RubyClass source, RubySymbol pipelineId, RubyObject uncastedConfigParts, RubyObject logstashSettings) {
-        RubyArray configParts;
-        if (!uncastedConfigParts.checkArrayType().isNil()) {
-            configParts = uncastedConfigParts.convertToArray();
-        } else {
-            configParts = RubyArray.newArray(RUBY, uncastedConfigParts);
-        }
+        IRubyObject uncasted = uncastedConfigParts.checkArrayType();
+        final RubyArray configParts = !uncasted.isNil() ?
+                (RubyArray) uncasted :
+                RubyArray.newArray(RUBY, uncastedConfigParts);
 
         this.source = source;
         this.pipelineId = pipelineId.toString();
