@@ -125,8 +125,6 @@ public class ConvergeResultExt extends RubyObject {
                 result = new SuccessfulActionExt(context.runtime, RubyUtil.SUCCESSFUL_ACTION_CLASS).initialize(context);
             } else if (actionResult.eql(context.fals)) {
                 result = FailedActionExt.fromAction(context, RubyUtil.FAILED_ACTION_CLASS, action, actionResult);
-            } else if (actionResult.getMetaClass().getName().equals("Java::JavaLang::IllegalStateException")) {
-                result = FailedActionExt.fromAction(context, RubyUtil.FAILED_ACTION_CLASS, action, actionResult);
             } else {
                 throw context.runtime.newRaiseException(
                         RubyUtil.LOGSTASH_ERROR,

@@ -115,21 +115,18 @@ public final class PipelineConfig {
     public boolean isSystem() {
         return this.settings.callMethod(RUBY.getCurrentContext(), "get_value",
                                         RubyString.newString(RUBY, "pipeline.system"))
-                .toJava(Boolean.class);
+                .isTrue();
     }
 
     @Override
     public boolean equals(Object other) {
-        if (other == null) {
-            return false;
-        }
         if (!(other instanceof PipelineConfig)) {
             return false;
         }
         PipelineConfig cother = (PipelineConfig) other;
         return configHash().equals(cother.configHash()) &&
                 this.pipelineId.equals(cother.pipelineId) &&
-                this.settings.callMethod(RUBY.getCurrentContext(), "==", cother.settings).toJava(Boolean.class);
+                this.settings.eql(cother.settings);
     }
 
     @Override
