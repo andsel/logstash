@@ -17,8 +17,4 @@
 
 module LogStash::Config
   java_import org.logstash.config.ir.PipelineConfig
-
-#    def self.pipeline_id
-#      getPipeplineId.to_sym
-#    end
 end
