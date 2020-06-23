@@ -199,13 +199,25 @@ public class IRHelpers {
                 RubyUtil.RUBY, new SourceWithMetadata("proto", "path", 1, 1, config)));
     }
 
+    /**
+     * Load pipeline configuration from a path returning the list of SourceWithMetadata.
+     *
+     * The path refers to test's resources, if it point to single file that file is loaded, if reference a directory
+     * then the full list of contained files is loaded in name order.
+     * */
     @SuppressWarnings("rawtypes")
     public static RubyArray toSourceWithMetadataFromPath(String configPath) throws IncompleteSourceWithMetadataException, IOException {
-//        this.getClass().getClassLoader().getResources()
         URL url = IRHelpers.class.getClassLoader().getResource(configPath);
         String path = url.getPath();
-        final List<File> files = Arrays.asList(new File(path).listFiles());
-        Collections.sort(files);
+        final File filePath = new File(path);
+        final List<File> files;
+        if (filePath.isDirectory()) {
+            files = Arrays.asList(filePath.listFiles());
+            Collections.sort(files);
+        } else {
+            files = Collections.singletonList(filePath);
+        }
+
         List<IRubyObject> rubySwms = new ArrayList<>();
         for (File configFile : files) {
             final List<String> fileContent = Files.readLines(configFile, Charset.defaultCharset());

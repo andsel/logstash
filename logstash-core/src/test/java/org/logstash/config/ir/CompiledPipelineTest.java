@@ -23,6 +23,7 @@ package org.logstash.config.ir;
 import co.elastic.logstash.api.Codec;
 import com.google.common.base.Strings;
 
+import java.io.IOException;
 import java.time.LocalTime;
 import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
@@ -48,18 +49,16 @@ import org.logstash.ConvertedList;
 import org.logstash.ConvertedMap;
 import org.logstash.Event;
 import org.logstash.RubyUtil;
+import org.logstash.common.IncompleteSourceWithMetadataException;
 import org.logstash.common.SourceWithMetadata;
-import org.logstash.config.ir.compiler.AbstractFilterDelegatorExt;
-import org.logstash.config.ir.compiler.AbstractOutputDelegatorExt;
-import org.logstash.config.ir.compiler.FilterDelegatorExt;
-import org.logstash.config.ir.compiler.PluginFactory;
+import org.logstash.config.ir.compiler.*;
 import org.logstash.ext.JrubyEventExtLibrary;
 import co.elastic.logstash.api.Configuration;
 import co.elastic.logstash.api.Filter;
 import co.elastic.logstash.api.Input;
 import co.elastic.logstash.api.Context;
 
-import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.*;
 
 /**
  * Tests for {@link CompiledPipeline}.
@@ -566,6 +565,33 @@ public final class CompiledPipelineTest extends RubyEnvTestCase {
     }
 
     @Test
+    @SuppressWarnings({"unchecked"})
+    public void testCompilerCacheCompiledClasses() throws IOException, InvalidIRException {
+        final FixedPluginFactory pluginFactory = new FixedPluginFactory(
+                () -> null,
+                () -> IDENTITY_FILTER,
+                mockOutputSupplier()
+        );
+
+        final PipelineIR pipeline1 = ConfigCompiler.configToPipelineIR(
+                IRHelpers.toSourceWithMetadataFromPath("org/logstash/config/ir/cache/pipeline1.conf"),
+                false);
+        final CompiledPipeline compiledPipeline1 = new CompiledPipeline(pipeline1, pluginFactory);
+        compiledPipeline1.buildExecution();
+        final int cacheBefore = ComputeStepSyntaxElement.classCacheSize();
+
+        final PipelineIR pipeline2 = ConfigCompiler.configToPipelineIR(
+                IRHelpers.toSourceWithMetadataFromPath("org/logstash/config/ir/cache/pipeline2.conf"),
+                false);
+        final CompiledPipeline compiledPipeline2 = new CompiledPipeline(pipeline2, pluginFactory);
+        compiledPipeline2.buildExecution();
+        final int cachedAfter = ComputeStepSyntaxElement.classCacheSize();
+
+        assertEquals(1, cachedAfter - cacheBefore);
+
+    }
+
+    @Test
     @SuppressWarnings({"unchecked", "rawtypes"})
     public void compilerBenchmark() throws Exception {
         final PipelineIR baselinePipelineIR = createPipelineIR(200);
@@ -586,13 +612,11 @@ public final class CompiledPipelineTest extends RubyEnvTestCase {
             final CompiledPipeline.CompiledExecution compiledExecution = baselineCompiledPipeline.buildExecution();
             compiledExecution.compute(RubyUtil.RUBY.newArray(testEvent), false, false);
         });
-        System.out.println(String.format(">>>DNADBG compilation baseline took: %d seconds", compilationBaseline));
 
         final long compilationTest = time(ChronoUnit.SECONDS, () -> {
             final CompiledPipeline.CompiledExecution compiledExecution = testCompiledPipeline.buildExecution();
             compiledExecution.compute(RubyUtil.RUBY.newArray(testEvent), false, false);
         });
-        System.out.println(String.format(">>>DNADBG compilation test took: %d seconds", compilationTest));
 
         // sanity checks
         final Collection<JrubyEventExtLibrary.RubyEvent> outputEvents = EVENT_SINKS.get(runId);

@@ -20,6 +20,7 @@
 
 package org.logstash.config.ir.compiler;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.googlejavaformat.java.Formatter;
 import com.google.googlejavaformat.java.FormatterException;
 import java.io.IOException;
@@ -82,6 +83,11 @@ public final class ComputeStepSyntaxElement<T extends Dataset> {
         final Class<T> interfce)
     {
         return new ComputeStepSyntaxElement<>(methods, fields, interfce);
+    }
+
+    @VisibleForTesting
+    public static int classCacheSize() {
+        return CLASS_CACHE.size();
     }
 
     private ComputeStepSyntaxElement(
