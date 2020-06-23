@@ -20,9 +20,11 @@
 
 package org.logstash.config.ir;
 
+import com.google.common.io.Files;
 import org.hamcrest.MatcherAssert;
 import org.jruby.RubyArray;
 import org.jruby.javasupport.JavaUtil;
+import org.jruby.runtime.builtin.IRubyObject;
 import org.logstash.RubyUtil;
 import org.logstash.common.IncompleteSourceWithMetadataException;
 import org.logstash.common.SourceWithMetadata;
@@ -34,10 +36,11 @@ import org.logstash.config.ir.graph.Graph;
 import org.logstash.config.ir.graph.Vertex;
 import org.logstash.config.ir.graph.algorithms.GraphDiff;
 
-import java.util.HashMap;
-import java.util.Objects;
-import java.util.Random;
-import java.util.UUID;
+import java.io.File;
+import java.io.IOException;
+import java.net.URL;
+import java.nio.charset.Charset;
+import java.util.*;
 import java.util.concurrent.Callable;
 
 import static org.logstash.config.ir.DSL.*;
@@ -194,5 +197,21 @@ public class IRHelpers {
     public static RubyArray toSourceWithMetadata(String config) throws IncompleteSourceWithMetadataException {
         return RubyUtil.RUBY.newArray(JavaUtil.convertJavaToRuby(
                 RubyUtil.RUBY, new SourceWithMetadata("proto", "path", 1, 1, config)));
+    }
+
+    @SuppressWarnings("rawtypes")
+    public static RubyArray toSourceWithMetadataFromPath(String configPath) throws IncompleteSourceWithMetadataException, IOException {
+//        this.getClass().getClassLoader().getResources()
+        URL url = IRHelpers.class.getClassLoader().getResource(configPath);
+        String path = url.getPath();
+        final List<File> files = Arrays.asList(new File(path).listFiles());
+        Collections.sort(files);
+        List<IRubyObject> rubySwms = new ArrayList<>();
+        for (File configFile : files) {
+            final List<String> fileContent = Files.readLines(configFile, Charset.defaultCharset());
+            final SourceWithMetadata swm = new SourceWithMetadata("file", configFile.getPath(), 1, 1, String.join("\n", fileContent));
+            rubySwms.add(JavaUtil.convertJavaToRuby(RubyUtil.RUBY, swm));
+        }
+        return RubyUtil.RUBY.newArray(rubySwms);
     }
 }
