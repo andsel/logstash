@@ -52,6 +52,10 @@ public final class ComputeStepSyntaxElement<T extends Dataset> {
 
     private static final ISimpleCompiler COMPILER = new SimpleCompiler();
 
+    static {
+        COMPILER.setDebuggingInformation(true, true, true);
+    }
+
     /**
      * Global cache of runtime compiled classes to prevent duplicate classes being compiled.
      * across pipelines and workers.
@@ -90,6 +94,17 @@ public final class ComputeStepSyntaxElement<T extends Dataset> {
         return CLASS_CACHE.size();
     }
 
+    /*
+     * Used in a test to clean start, with class loaders wiped out into Janino compiler and cleared the cached classes.
+    * */
+    @VisibleForTesting
+    public static void cleanClassCache() {
+        synchronized (COMPILER) {
+            CLASS_CACHE.clear();
+            COMPILER.setParentClassLoader(null);
+        }
+    }
+
     private ComputeStepSyntaxElement(
         final Iterable<MethodSyntaxElement> methods,
         final ClassFields fields,
@@ -106,9 +121,9 @@ public final class ComputeStepSyntaxElement<T extends Dataset> {
 
     @SuppressWarnings("unchecked")
     public T instantiate() {
-         try {
-             final Class<? extends Dataset> clazz = compile();
-             return (T) clazz.getConstructor(Map.class).newInstance(ctorArguments());
+        try {
+            final Class<? extends Dataset> clazz = compile();
+            return (T) clazz.getConstructor(Map.class).newInstance(ctorArguments());
         } catch (final NoSuchMethodException | InvocationTargetException | InstantiationException | IllegalAccessException ex) {
             throw new IllegalStateException(ex);
         }
