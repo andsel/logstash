@@ -7,6 +7,12 @@
 export JRUBY_OPTS="-J-Xmx1g"
 
 STACK_VERSION=`cat versions.yml | sed -n 's/^logstash\:\s\([[:digit:]]*\.[[:digit:]]*\.[[:digit:]]*\)$/\1/p'`
+if [ -n "$VERSION_QUALIFIER_OPT" ]; then
+  # in case of alpha or beta versions the qualifier should be used
+  # 8.0.0-alpha1
+  STACK_VERSION="${STACK_VERSION}-${$VERSION_QUALIFIER_OPT}"
+fi
+
 RELEASE_BRANCH=`git rev-parse --abbrev-ref HEAD`
 
 echo "Download all the artifacts for version ${STACK_VERSION}"
