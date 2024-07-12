@@ -313,7 +313,6 @@ public final class DatasetCompiler {
         final ValueSyntaxElement ifData, final ValueSyntaxElement elseData) {
         final ValueSyntaxElement eventVal = event.access();
         return Closure.wrap(
-//            SyntaxFactory.value("try {"),
             SyntaxFactory.value("org.logstash.config.ir.compiler.Utils").call(
                 "filterEvents",
                 inputBuffer,
@@ -321,7 +320,6 @@ public final class DatasetCompiler {
                 ifData,
                 elseData
             )
-//            SyntaxFactory.value("} catch (org.jruby.exceptions.TypeError ex) {System.out.println(\"Catched type error in if\");}")
         );
     }
 
