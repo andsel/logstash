@@ -114,7 +114,14 @@ public final class DatasetCompiler {
     {
         final ClassFields fields = new ClassFields();
         final ValueSyntaxElement outputBuffer = fields.add(new ArrayList<>());
-        final ValueSyntaxElement errorNotifier = fields.add(conditionalErrListener);
+        final ValueSyntaxElement errorNotifier;
+        if (isContainedUnderIfStatement(parents)) {
+            errorNotifier = fields.add(conditionalErrListener);
+        } else {
+            // avoids to create a field that wouldn't be used in the target class
+            errorNotifier = null;
+        }
+
         final Closure clear = Closure.wrap();
         final Closure compute;
         if (parents.isEmpty()) {
@@ -131,7 +138,7 @@ public final class DatasetCompiler {
 
             // when the parent Dataset is a SplitDataset (essentially an if statement) cover
             // with try..catch in case of evaluation errors. Same happens also on the outputDataset
-            if (parents.size() == 1 && parents.iterator().next() instanceof SplitDataset) {
+            if (isContainedUnderIfStatement(parents)) {
                 Closure exceptionHandlerBlock = Closure.wrap(
                         new SyntaxFactory.MethodCallReturnValue(SyntaxFactory.value("this"), "setDone"),
                         errorNotifier.call("notify", SyntaxFactory.value("ex")),
@@ -149,6 +156,10 @@ public final class DatasetCompiler {
             }
         }
         return prepare(withOutputBuffering(compute, clear, outputBuffer, fields));
+    }
+
+    private static boolean isContainedUnderIfStatement(Collection<Dataset> parents) {
+        return parents.size() == 1 && parents.iterator().next() instanceof SplitDataset;
     }
 
     /**
@@ -276,7 +287,7 @@ public final class DatasetCompiler {
                 clearSyntax = clearSyntax(parentFields);
             }
             final ValueSyntaxElement inputBuffer = fields.add(buffer);
-            if (parents.size() == 1 && parents.iterator().next() instanceof SplitDataset) {
+            if (isContainedUnderIfStatement(parents)) {
                 final ValueSyntaxElement errorNotifier = fields.add(conditionalErrListener);
                 Closure exceptionHandlerBlock = Closure.wrap(
                         errorNotifier.call("notify", SyntaxFactory.value("ex")),
