@@ -93,7 +93,7 @@ public final class DatasetCompiler {
                     ConditionalEvaluationError.class, exceptionHandlerBlock, exception
             );
             compute = withOutputBuffering(
-                    Closure.wrap(safeLoop),
+                Closure.wrap(safeLoop),
                 Closure.wrap(clear(elseData)), ifData, fields
             );
         } else {
@@ -105,7 +105,7 @@ public final class DatasetCompiler {
                     ConditionalEvaluationError.class, exceptionHandlerBlock, exception);
             compute = withOutputBuffering(
                 withInputBuffering(
-                        Closure.wrap(safeLoop),
+                    Closure.wrap(safeLoop),
                     parentFields, inputBuffer
                 ),
                 clearSyntax(parentFields).add(clear(elseData)).add(clear(inputBuffer)), ifData, fields
