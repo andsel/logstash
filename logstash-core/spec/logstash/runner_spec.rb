@@ -271,6 +271,7 @@ describe LogStash::Runner do
             expect(LogStash::Agent).to receive(:new) do |settings|
               expect(settings.set?("api.http.host")).to be(true)
               expect(settings.get("api.http.host")).to eq("localhost")
+              # settings.get_setting("api.http.host").observe_post_process
             end
 
             subject.run("bin/logstash", args)
