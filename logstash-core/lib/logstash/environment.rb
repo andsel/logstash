@@ -78,7 +78,7 @@ module LogStash
          Setting::PortRange.new("api.http.port", 9600..9700).with_deprecated_alias("http.port"),
             Setting::StringSetting.new("api.environment", "production").with_deprecated_alias("http.environment"),
             Setting::StringSetting.new("api.auth.type", "none", true, %w(none basic)),
-            Setting::String.new("api.auth.basic.username", nil, false).nullable,
+            Setting::StringSetting.new("api.auth.basic.username", nil, false).nullable,
           Setting::Password.new("api.auth.basic.password", nil, false).nullable,
             Setting::StringSetting.new("api.auth.basic.password_policy.mode", "WARN", true, %w[WARN ERROR]),
            Setting::Numeric.new("api.auth.basic.password_policy.length.minimum", 8),
@@ -109,7 +109,7 @@ module LogStash
          Setting::TimeValue.new("slowlog.threshold.debug", "-1"),
          Setting::TimeValue.new("slowlog.threshold.trace", "-1"),
             Setting::StringSetting.new("keystore.classname", "org.logstash.secret.store.backend.JavaKeyStore"),
-            Setting::String.new("keystore.file", ::File.join(::File.join(LogStash::Environment::LOGSTASH_HOME, "config"), "logstash.keystore"), false), # will be populated on
+            Setting::StringSetting.new("keystore.file", ::File.join(::File.join(LogStash::Environment::LOGSTASH_HOME, "config"), "logstash.keystore"), false), # will be populated on
     Setting::NullableString.new("monitoring.cluster_uuid"),
             Setting::StringSetting.new("pipeline.buffer.type", "direct", true, ["direct", "heap"])
   # post_process
