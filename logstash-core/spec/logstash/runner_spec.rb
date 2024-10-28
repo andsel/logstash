@@ -263,18 +263,52 @@ describe LogStash::Runner do
         let(:runner_deprecation_logger_stub) { double("DeprecationLogger(Runner)").as_null_object }
         before(:each) { allow(runner).to receive(:deprecation_logger).and_return(runner_deprecation_logger_stub) }
 
+        let(:configuration_spy) { configure_log_spy }
+
+        def configure_log_spy
+          java_import org.apache.logging.log4j.core.config.builder.api.ConfigurationBuilderFactory
+          java_import org.apache.logging.log4j.Level
+          config_builder = ConfigurationBuilderFactory.newConfigurationBuilder
+          return config_builder
+                   .add(
+                     config_builder
+                       .newAppender("LOG_SPY", "List")
+                       .add(config_builder.newLayout("PatternLayout").addAttribute("pattern", "%-5p [%t]: %m%n"))
+                   )
+                   .add(
+                     config_builder
+                       .newRootLogger(Level::INFO)
+                       .add(config_builder.newAppenderRef("LOG_SPY")))
+                   .build(false)
+        end
+
         context "when deprecated :http.host is defined by the user" do
           let(:args) { ["--http.host", "localhost", "-e", pipeline_string]}
           it "creates an Agent whose `api.http.host` uses the provided value and provides helpful deprecation message" do
-            expect(deprecation_logger_stub).to receive(:deprecated).with(a_string_including "`http.host` is a deprecated alias for `api.http.host`")
+            java_import org.apache.logging.log4j.core.config.Configurator
+            java_import org.apache.logging.log4j.core.config.Configuration
+
+            java_import org.apache.logging.log4j.LogManager
+            java_import org.apache.logging.log4j.core.impl.Log4jContextFactory
+            # This is done because the LoggerExt calls setFactory LogstashLoggerContextFactory implements
+            # org.apache.logging.log4j.spi.LoggerContextFactory and doesn't extend org.apache.logging.log4j.core.impl.Log4jContextFactory
+            # which is the class expected by the following Configurator to use the programmatic configuration.
+            LogManager.setFactory(Log4jContextFactory.new)
+            log_ctx = Configurator.java_send(:initialize, [Configuration], configure_log_spy)
+            expect(log_ctx).not_to be nil
+            log_ctx.reconfigure(configure_log_spy) # force the programmatic configuration, without this it's not used
+
+            appender_spy = log_ctx.getConfiguration().getAppender("LOG_SPY")
+
             expect(runner_deprecation_logger_stub).to receive(:deprecated).with(a_string_including 'The flag ["--http.host"] has been deprecated')
             expect(LogStash::Agent).to receive(:new) do |settings|
               expect(settings.set?("api.http.host")).to be(true)
               expect(settings.get("api.http.host")).to eq("localhost")
-              # settings.get_setting("api.http.host").observe_post_process
             end
 
             subject.run("bin/logstash", args)
+
+            expect(appender_spy.messages[0]).to match(/`http.host` is a deprecated alias for `api.http.host`/)
           end
         end
 
