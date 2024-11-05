@@ -263,8 +263,6 @@ describe LogStash::Runner do
         let(:runner_deprecation_logger_stub) { double("DeprecationLogger(Runner)").as_null_object }
         before(:each) { allow(runner).to receive(:deprecation_logger).and_return(runner_deprecation_logger_stub) }
 
-        let(:configuration_spy) { configure_log_spy }
-
         def configure_log_spy
           java_import org.apache.logging.log4j.core.config.builder.api.ConfigurationBuilderFactory
           java_import org.apache.logging.log4j.Level
@@ -308,7 +306,10 @@ describe LogStash::Runner do
 
             subject.run("bin/logstash", args)
 
+            expect(appender_spy.messages).not_to be_empty
             expect(appender_spy.messages[0]).to match(/`http.host` is a deprecated alias for `api.http.host`/)
+
+            log_ctx.close
           end
         end
 
