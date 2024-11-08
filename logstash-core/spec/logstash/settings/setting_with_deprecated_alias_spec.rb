@@ -27,15 +27,6 @@ describe LogStash::Setting::SettingWithDeprecatedAlias do
   let(:settings) { LogStash::Settings.new }
   let(:canonical_setting) { LogStash::Setting::StringSetting.new(canonical_setting_name, default_value, true) }
 
-  # let(:log_ctx) { setup_logger_spy }
-  # let(:log_spy) { retrieve_logger_spy(log_ctx) }
-  #
-  # let!(:log_ctx) { setup_logger_spy }
-  # let!(:log_spy) { retrieve_logger_spy(log_ctx) }
-
-  # log_spy = nil
-  # log_ctx = nil
-
   def log_ctx
     @log_ctx
   end
@@ -49,7 +40,6 @@ describe LogStash::Setting::SettingWithDeprecatedAlias do
 
     # Initialization of appender and logger use to spy, need to be done before executing any code that logs,
     # that's the reason wy to refer the spying logger context before any test.
-    # log_ctx
     @log_ctx = setup_logger_spy
     @log_spy = retrieve_logger_spy(@log_ctx)
     if @log_spy == nil || log_spy == nil
