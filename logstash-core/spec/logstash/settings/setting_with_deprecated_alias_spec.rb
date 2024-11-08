@@ -27,9 +27,6 @@ describe LogStash::Setting::SettingWithDeprecatedAlias do
   let(:settings) { LogStash::Settings.new }
   let(:canonical_setting) { LogStash::Setting::StringSetting.new(canonical_setting_name, default_value, true) }
 
-  log_spy = nil
-  log_ctx = nil
-
   def log_ctx
     @log_ctx
   end
@@ -39,9 +36,25 @@ describe LogStash::Setting::SettingWithDeprecatedAlias do
   end
 
   before(:each) do
-    # Initialization of appender and logger use to spy, need to be freshly recreated on each test is context shutdown is used.
+    puts "DNADBG>> before - outer"
+
+    # Initialization of appender and logger use to spy, need to be done before executing any code that logs,
+    # that's the reason wy to refer the spying logger context before any test.
     @log_ctx = setup_logger_spy
     @log_spy = retrieve_logger_spy(@log_ctx)
+    if @log_spy == nil || log_spy == nil
+      puts "DNADBG>> @log_spy: #{@log_spy}, log_spy: #{log_spy}"
+    end
+    expect(log_spy).not_to be nil
+
+    # Verify the appender work properly
+    logger = log_ctx.getLogger("org.logstash.settings.DeprecatedAlias")
+    expect(logger.info_enabled?).to be_truthy
+    logger.info("DNADBG>> Rspec test direct log")
+    puts "DNADBG>> log spy in before #{log_spy}"
+    expect(log_spy.messages[0]).to include("Rspec test direct log")
+    log_spy.clear
+    expect(log_spy.messages).to be_empty
 
     allow(LogStash::Settings).to receive(:logger).and_return(double("SettingsLogger").as_null_object)
     allow(LogStash::Settings).to receive(:deprecation_logger).and_return(double("SettingsDeprecationLogger").as_null_object)
@@ -50,7 +63,10 @@ describe LogStash::Setting::SettingWithDeprecatedAlias do
   end
 
   after(:each) do
+    puts "DNADBG>> after - outer all appenders #{@log_ctx.getConfiguration().getAppenders}"
     @log_ctx.close
+    # java_import org.apache.logging.log4j.LogManager
+    # LogManager.shutdown()
     @log_spy = nil
     @log_ctx = nil
   end
@@ -78,7 +94,6 @@ describe LogStash::Setting::SettingWithDeprecatedAlias do
       it 'does not emit a deprecation warning' do
         expect(LogStash::Settings.deprecation_logger).to_not receive(:deprecated).with(a_string_including(deprecated_setting_name))
         settings.get_setting(deprecated_setting_name).observe_post_process
-        log_spy = retrieve_logger_spy(log_ctx)
         expect(log_spy.messages).to be_empty
       end
     end

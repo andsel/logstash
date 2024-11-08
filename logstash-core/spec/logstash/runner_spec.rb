@@ -263,6 +263,8 @@ describe LogStash::Runner do
         let(:runner_deprecation_logger_stub) { double("DeprecationLogger(Runner)").as_null_object }
         before(:each) { allow(runner).to receive(:deprecation_logger).and_return(runner_deprecation_logger_stub) }
 
+        let(:configuration_spy) { configure_log_spy }
+
         def configure_log_spy
           java_import org.apache.logging.log4j.core.config.builder.api.ConfigurationBuilderFactory
           java_import org.apache.logging.log4j.Level
@@ -296,20 +298,38 @@ describe LogStash::Runner do
             expect(log_ctx).not_to be nil
             log_ctx.reconfigure(configure_log_spy) # force the programmatic configuration, without this it's not used
 
+            # logger = log_ctx.getLogger("test_dna")
+            # Disabling the following the test doesn't receive any message, enabling it receives these and the expected log lines, but fails other tests with log spy
+            # logger.info("DNADBG%% Rspec test direct log")
+
             appender_spy = log_ctx.getConfiguration().getAppender("LOG_SPY")
+            # logger = log_ctx.getLogger("test_dna")
+            # expect(logger.info_enabled?).to be_truthy
+            # logger.info("DNADBG>> Rspec test direct log")
+            # # puts "DNADBG>> log spy in before #{log_spy}"
+            # # puts "DNADBG>> all appenders #{@log_ctx.getConfiguration().getAppenders}"
+            # expect(appender_spy.messages[0]).to include("Rspec test direct log")
+            # appender_spy.clear
+            # expect(appender_spy.messages).to be_empty
+
 
             expect(runner_deprecation_logger_stub).to receive(:deprecated).with(a_string_including 'The flag ["--http.host"] has been deprecated')
             expect(LogStash::Agent).to receive(:new) do |settings|
               expect(settings.set?("api.http.host")).to be(true)
               expect(settings.get("api.http.host")).to eq("localhost")
+              # settings.get_setting('http.host').observe_post_process
             end
 
             subject.run("bin/logstash", args)
+            #appender_spy.stop
+            # sleep 1
+            # log_ctx.stop()
 
             expect(appender_spy.messages).not_to be_empty
             expect(appender_spy.messages[0]).to match(/`http.host` is a deprecated alias for `api.http.host`/)
 
             log_ctx.close
+            # LogManager.shutdown(log_ctx)
           end
         end
 

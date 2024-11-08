@@ -22,6 +22,8 @@ package org.logstash.settings;
 import co.elastic.logstash.api.DeprecationLogger;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
+import org.apache.logging.log4j.core.Appender;
+import org.apache.logging.log4j.core.LoggerContext;
 import org.logstash.log.DefaultDeprecationLogger;
 
 /**
@@ -44,8 +46,14 @@ public final class DeprecatedAlias<T> extends SettingDelegator<T> {
     // check https://github.com/elastic/logstash/pull/16339
     public void observePostProcess() {
         if (isSet()) {
+            System.out.println("DNADBG>> observePostProcess invoked on DeprecatedAlias: " + getName());
             DEPRECATION_LOGGER.deprecated("The setting `{}` is a deprecated alias for `{}` and will be removed in a " +
                     "future release of Logstash. Please use `{}` instead", getName(), canonicalProxy.getName(), canonicalProxy.getName());
+//            LOGGER.info("DNADBG DeprecatedAlias test from LOGGER");
+//            LogManager.getLogger().info("DNADBG DeprecatedAlias test from direct logger");
+
+            Appender spy = (LoggerContext.getContext(false)).getConfiguration().getAppender("LOG_SPY");
+            System.out.println("DNADBG>> spy from DeprecatedAlias.observePostProcess is: " + spy);
         }
     }
 
@@ -53,6 +61,9 @@ public final class DeprecatedAlias<T> extends SettingDelegator<T> {
     public T value() {
         LOGGER.warn("The value of setting `{}` has been queried by its deprecated alias `{}`. " +
                 "Code should be updated to query `{}` instead", canonicalProxy.getName(), getName(), canonicalProxy.getName());
+        System.out.println("DNADBG>> spy from DeprecatedAlias.value() of " + getName());
+        Appender spy = (LoggerContext.getContext(false)).getConfiguration().getAppender("LOG_SPY");
+        System.out.println("DNADBG>> spy from DeprecatedAlias.value is: " + spy);
         return super.value();
     }
 
