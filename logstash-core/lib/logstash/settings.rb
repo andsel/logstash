@@ -413,26 +413,27 @@ module LogStash
     ### Specific settings #####
 
     java_import org.logstash.settings.Boolean
+    java_import org.logstash.settings.Numeric
 
-    class Numeric < Coercible
-      def initialize(name, default = nil, strict = true)
-        super(name, ::Numeric, default, strict)
-      end
-
-      def coerce(v)
-        return v if v.is_a?(::Numeric)
-
-        # I hate these "exceptions as control flow" idioms
-        # but Ruby's `"a".to_i => 0` makes it hard to do anything else.
-        coerced_value = (Integer(v) rescue nil) || (Float(v) rescue nil)
-
-        if coerced_value.nil?
-          raise ArgumentError.new("Failed to coerce value to Numeric. Received #{v} (#{v.class})")
-        else
-          coerced_value
-        end
-      end
-    end
+    # class Numeric < Coercible
+    #   def initialize(name, default = nil, strict = true)
+    #     super(name, ::Numeric, default, strict)
+    #   end
+    #
+    #   def coerce(v)
+    #     return v if v.is_a?(::Numeric)
+    #
+    #     # I hate these "exceptions as control flow" idioms
+    #     # but Ruby's `"a".to_i => 0` makes it hard to do anything else.
+    #     coerced_value = (Integer(v) rescue nil) || (Float(v) rescue nil)
+    #
+    #     if coerced_value.nil?
+    #       raise ArgumentError.new("Failed to coerce value to Numeric. Received #{v} (#{v.class})")
+    #     else
+    #       coerced_value
+    #     end
+    #   end
+    # end
 
     class Integer < Coercible
       def initialize(name, default = nil, strict = true)
