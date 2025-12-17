@@ -46,7 +46,17 @@ public class HdrHistogramFlowMetric extends AbstractMetric<Map<String, Histogram
                     return last;
                 }
             });
-            //TODO possible problem if thread suspend here, time passes, and another thread updates lastRecordTimeNanos?
+
+            // If two threads race to update lastRecordTimeNanos, only one updates the variable. If two threads reads
+            // currentTimeNanos that are different but really close to the other, then only one succeed in updating the atomic long,
+            // and will satisfy updatedLast == currentTimeNanos, so will create the snapshot. The other will read a different
+            // updatedLast and the condition will fail.
+            // If two threads reads exactly the same nanosecond time, also in this case only one will update the atomic long, but both
+            // will satisfy the condition and create two histogram snapshots, one of which will be probably empty.
+            // In this case the recordWindow.append prefer the newest, so in case of two snapshots created at the same time,
+            // the latter will be kept. Depending on the interleaving of the threads it could be that the empty one is kept.
+            // Is this a problem? Probably not, because it concur to the calculation of the percentiles for a fraction, and
+            // giving that's a statistical approximation, doesn't really matter having exact numbers.
             if (updatedLast == currentTimeNanos) {
                 // an update of the lastRecordTimeNanos happened, we need to create a snapshot
                 Histogram snaspshotHistogram = histogramRecorder.getIntervalHistogram();
@@ -58,13 +68,14 @@ public class HdrHistogramFlowMetric extends AbstractMetric<Map<String, Histogram
             final Histogram windowAggregated = new Histogram(1_000_000, 3);
             final long currentTimeNanos = System.nanoTime();
             recordWindow.forEachCapture(dpc -> {
+                // When all captures fall outside of the retention window, the list still holds the last capture,
+                // so have to check retention here again
                 if ((currentTimeNanos - dpc.nanoTime()) > retentionPolicy.retentionNanos()) {
                     // skip captures outside of retention window
                     if (LOG.isTraceEnabled()) {
                         LOG.trace("Skipping capture outside of retention window {}, expired {} seconds ago",
                                 retentionPolicy.policyName(),
-                                Duration.ofNanos((currentTimeNanos - dpc.nanoTime()) - retentionPolicy.retentionNanos())
-                                /*((currentTimeNanos - dpc.nanoTime()) - retentionPolicy.retentionNanos()) / 1_000_000_000*/);
+                                Duration.ofNanos((currentTimeNanos - dpc.nanoTime()) - retentionPolicy.retentionNanos()).toSeconds());
                     }
                     return;
                 }
@@ -76,7 +87,9 @@ public class HdrHistogramFlowMetric extends AbstractMetric<Map<String, Histogram
                             dpc.getClass().getName());
                 }
             });
-            LOG.info("Aggregate estimated size: {}", recordWindow.countCaptures());
+            if (LOG.isTraceEnabled()) {
+                LOG.trace("Captures held for policy {}, estimated size: {}", retentionPolicy, recordWindow.countCaptures());
+            }
             return new HistogramMetricData(windowAggregated);
         }
     }
@@ -85,15 +98,11 @@ public class HdrHistogramFlowMetric extends AbstractMetric<Map<String, Histogram
 
     public static UserMetric.Factory<HistogramFlowMetric> FACTORY = HistogramFlowMetric.PROVIDER.getFactory(HdrHistogramFlowMetric::new);
 
-    //TODO should have same infrastructure code as ExtendedFlowMetric to capture rates over time.
-//    FlowMetricRetentionPolicy retentionPolicy = FlowMetricRetentionPolicy.BuiltInRetentionPolicy.LAST_1_MINUTE;
-
     private static final List<FlowMetricRetentionPolicy> SUPPORTED_POLICIES = List.of(
-            FlowMetricRetentionPolicy.BuiltInRetentionPolicy.LAST_1_MINUTE/*,
+            FlowMetricRetentionPolicy.BuiltInRetentionPolicy.LAST_1_MINUTE,
             FlowMetricRetentionPolicy.BuiltInRetentionPolicy.LAST_5_MINUTES,
-            FlowMetricRetentionPolicy.BuiltInRetentionPolicy.LAST_15_MINUTES*/
+            FlowMetricRetentionPolicy.BuiltInRetentionPolicy.LAST_15_MINUTES
     );
-//    private final HistogramSnapshotsWindow histogramSnapshotsWindow = new HistogramSnapshotsWindow(retentionPolicy);
     private final ConcurrentMap<FlowMetricRetentionPolicy, HistogramSnapshotsWindow> histogramsWindows = new ConcurrentHashMap<>();
 
     /**
@@ -126,6 +135,5 @@ public class HdrHistogramFlowMetric extends AbstractMetric<Map<String, Histogram
         for (FlowMetricRetentionPolicy policy : SUPPORTED_POLICIES) {
             histogramsWindows.get(policy).recordValue(totalByteSize);
         }
-//        histogramSnapshotsWindow.recordValue(totalByteSize);
     }
 }
