@@ -295,6 +295,11 @@ public class ExtendedFlowMetric extends BaseFlowMetric {
             return i;
         }
 
+        //DNADBG
+        int countCaptures() {
+            return estimateSize();
+        }
+
         /**
          * @see RetentionWindow#estimateSize(Node)
          */
