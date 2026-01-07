@@ -26,7 +26,7 @@ import java.math.BigDecimal;
  * point-in-time data for a pair of {@link Metric}s.
  * It is immutable.
  */
-class FlowCapture {
+class FlowCapture implements DatapointCapture {
     private final Number numerator;
     private final Number denominator;
 

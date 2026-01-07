@@ -133,4 +133,6 @@ public final class MetricKeys {
 
     public static final RubySymbol BATCH_CURRENT_KEY = RubyUtil.RUBY.newSymbol("current");
 
+//    public static final RubySymbol BATCH_SIZE_HISTOGRAM_KEY = RubyUtil.RUBY.newSymbol("histogram");
+
 }
