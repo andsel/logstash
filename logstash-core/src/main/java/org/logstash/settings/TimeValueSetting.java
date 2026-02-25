@@ -51,6 +51,11 @@ public class TimeValueSetting extends Coercible<TimeValue> {
                     "Integer value for `" + name + "` does not have a time unit and will be interpreted in nanoseconds. " +
                             "Time units will be required in a future release of Logstash. " +
                             "Acceptable unit suffixes are: `d`, `h`, `m`, `s`, `ms`, `micros`, and `nanos`.");
+            if (((Number) value).longValue() > Integer.MAX_VALUE) {
+                throw RubyUtil.RUBY.newArgumentError(
+                        "Numeric value for `" + name + "` exceeds the maximum int (" + Integer.MAX_VALUE +
+                        ") supported value for nanoseconds.");
+            }
             return new TimeValue(((Number) value).intValue(), "nanosecond");
         } else if (value instanceof Number) {
             throw RubyUtil.RUBY.newArgumentError(

@@ -20,10 +20,12 @@ package org.logstash.settings;
 
 import org.apache.logging.log4j.core.test.appender.ListAppender;
 import org.apache.logging.log4j.core.test.junit.LoggerContextRule;
+import org.jruby.exceptions.ArgumentError;
 import org.junit.Before;
 import org.junit.ClassRule;
 import org.junit.Test;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertThrows;
 import static org.junit.Assert.assertTrue;
@@ -75,5 +77,13 @@ public class TimeValueSettingTest {
 
         boolean printStalling = appender.getMessages().stream().anyMatch((msg) -> msg.contains("Time units will be required in a future release of Logstash."));
         assertTrue(printStalling);
+    }
+
+    @Test
+    public void givenNumberExceedingMaxInt_whenSet_thenThrowsArgumentError() {
+        TimeValueSetting setting = new TimeValueSetting("option", "-1");
+        long valueExceedingMaxInt = (long) Integer.MAX_VALUE + 1;
+        ArgumentError ex = assertThrows(ArgumentError.class, () -> setting.set(valueExceedingMaxInt));
+        assertThat(ex.getMessage()).contains("exceeds the maximum int");
     }
 }
