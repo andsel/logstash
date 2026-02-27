@@ -20,7 +20,6 @@ package org.logstash.settings;
 
 import org.junit.Test;
 
-import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 
@@ -28,7 +27,8 @@ import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.contains;
 import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.empty;
-import static org.hamcrest.Matchers.equalTo;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertNotEquals;
 import static org.junit.Assert.assertThrows;
 
 public class ArrayCoercibleSettingTest {
@@ -48,7 +48,7 @@ public class ArrayCoercibleSettingTest {
         List<String> initialValue = List.of("test");
         ArrayCoercibleSetting sut = new ArrayCoercibleSetting("option", String.class, initialValue, true);
 
-        assertThat(sut.value(), equalTo(initialValue));
+        assertEquals(initialValue, sut.value());
     }
 
     @Test
@@ -79,13 +79,66 @@ public class ArrayCoercibleSettingTest {
     }
 
     @Test
-    public void givenValuesOfIncorrectElementClassWhenSetThenThrowsException() {
-        ArrayCoercibleSetting sut = new ArrayCoercibleSetting("option", Integer.class, Collections.emptyList());
+    public void givenTwoSettingsWithSameNonArrayValueThenAreEqual() {
+        ArrayCoercibleSetting setting1 = new ArrayCoercibleSetting("option_1", String.class, "a string");
+        ArrayCoercibleSetting setting2 = new ArrayCoercibleSetting("option_1", String.class, "a string");
 
-        IllegalArgumentException ex = assertThrows(IllegalArgumentException.class, () -> {
-            sut.set(Collections.singletonList("not an integer"));
-        });
+        assertEquals(setting1, setting2);
+    }
 
-        assertThat(ex.getMessage(), containsString("Values of setting \"option\" must be Integer"));
+    @Test
+    public void givenTwoSettingsOneNonArrayAndOneArrayWithSameValueThenAreEqual() {
+        ArrayCoercibleSetting setting1 = new ArrayCoercibleSetting("option_1", String.class, "a string");
+        ArrayCoercibleSetting setting2 = new ArrayCoercibleSetting("option_1", String.class, List.of("a string"));
+
+        assertEquals(setting1, setting2);
+    }
+
+    @Test
+    public void givenTwoSettingsWithDifferentNonArrayValuesThenAreNotEqual() {
+        ArrayCoercibleSetting setting1 = new ArrayCoercibleSetting("option_1", String.class, "a string");
+        ArrayCoercibleSetting setting2 = new ArrayCoercibleSetting("option_1", String.class, "a different string");
+
+        assertNotEquals(setting1, setting2);
+    }
+
+    @Test
+    public void givenTwoSettingsWithNonArrayAndDifferentValueInArrayThenAreNotEqual() {
+        ArrayCoercibleSetting setting1 = new ArrayCoercibleSetting("option_1", String.class, "a string");
+        ArrayCoercibleSetting setting2 = new ArrayCoercibleSetting("option_1", String.class, List.of("a different string"));
+
+        assertNotEquals(setting1, setting2);
+    }
+
+    @Test
+    public void givenTwoSettingsBothHaveSameArrayValueThenAreEqual() {
+        ArrayCoercibleSetting setting1 = new ArrayCoercibleSetting("option_1", String.class, List.of("a string"));
+        ArrayCoercibleSetting setting2 = new ArrayCoercibleSetting("option_1", String.class, List.of("a string"));
+
+        assertEquals(setting1, setting2);
+    }
+
+    @Test
+    public void givenTwoSettingsArrayAndNonArrayWithSameValueThenAreEqual() {
+        ArrayCoercibleSetting setting1 = new ArrayCoercibleSetting("option_1", String.class, List.of("a string"));
+        ArrayCoercibleSetting setting2 = new ArrayCoercibleSetting("option_1", String.class, "a string");
+
+        assertEquals(setting1, setting2);
+    }
+
+    @Test
+    public void givenTwoSettingsWithDifferentArrayValuesThenAreNotEqual() {
+        ArrayCoercibleSetting setting1 = new ArrayCoercibleSetting("option_1", String.class, List.of("a string"));
+        ArrayCoercibleSetting setting2 = new ArrayCoercibleSetting("option_1", String.class, List.of("a different string"));
+
+        assertNotEquals(setting1, setting2);
+    }
+
+    @Test
+    public void givenTwoSettingsWithArrayAndDifferentNonArrayValueThenAreNotEqual() {
+        ArrayCoercibleSetting setting1 = new ArrayCoercibleSetting("option_1", String.class, List.of("a string"));
+        ArrayCoercibleSetting setting2 = new ArrayCoercibleSetting("option_1", String.class, "a different string");
+
+        assertNotEquals(setting1, setting2);
     }
 }
