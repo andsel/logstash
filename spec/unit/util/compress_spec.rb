@@ -197,7 +197,11 @@ describe LogStash::Util::Tar do
 
   context "#extraction" do
     let(:source) { File.join(File.expand_path("."), "source_file.tar.gz") }
-    let(:target) { File.expand_path("target_dir") }
+    let(:target) { Stud::Temporary.pathname }
+
+    after do
+      FileUtils.rm_rf(target) if File.exist?(target)
+    end
 
     it "raise an exception if the target dir exist" do
       allow(File).to receive(:exist?).with(target).and_return(true)
@@ -217,6 +221,7 @@ describe LogStash::Util::Tar do
       allow(Zlib::GzipReader).to receive(:open).with(source).and_yield(gzip_file)
       allow(Gem::Package::TarReader).to receive(:new).with(gzip_file).and_yield(tar_file)
 
+      allow(FileUtils).to receive(:mkdir_p)
       expect(FileUtils).to receive(:mkdir).with(target)
       expect(File).to receive(:open).exactly(3).times
       subject.extract(source, target)
@@ -226,6 +231,7 @@ describe LogStash::Util::Tar do
       tar_with_evil = [OpenStruct.new(:full_name => "../evil", :directory? => false, :symlink? => false, :read => "")]
       allow(Zlib::GzipReader).to receive(:open).with(source).and_yield(gzip_file)
       allow(Gem::Package::TarReader).to receive(:new).with(gzip_file).and_yield(tar_with_evil)
+      allow(FileUtils).to receive(:mkdir_p)
       expect(FileUtils).to receive(:mkdir).with(target)
       expect { subject.extract(source, target) }.to raise_error(LogStash::CompressError, /Refusing to extract file to unsafe path.*Files may not traverse with `..`/)
     end
