@@ -81,6 +81,7 @@ module LogStash
               if entry.directory?
                 FileUtils.mkdir_p(target_path)
               else # is a file to be extracted (symlinks rejected in verify_tar_link_entry!)
+                FileUtils.mkdir_p(::File.dirname(target_path))
                 ::File.open(target_path, "wb") { |f| f.write(entry.read) }
               end
             end
@@ -154,12 +155,11 @@ module LogStash
 
     # Tar.gz-only: rejects symlink entries
     # @param entry [Gem::Package::TarReader::Entry]
-    # @raise [CompressError] if entry is a symlink or path is unsafe
+    # @raise [CompressError] if entry is a symlink
     def self.verify_tar_link_entry!(entry)
       if entry.symlink?
         raise CompressError.new("Refusing to extract symlink entry: #{entry.full_name}")
       end
     end
-    #private :verify_tar_link_entry!
   end
 end
