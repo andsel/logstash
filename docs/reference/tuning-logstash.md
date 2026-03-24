@@ -99,7 +99,7 @@ Interpretation guidelines:
 - **Underfilled batches (P50/P90 < `pipeline.batch.size`)**  
   Suggests insufficient input volume. Increasing batch size is unlikely to help and may increase latency.
 
-- **Mixed percentiles (e.g., P90 ≈ `pipeline.batch.size`, P50 lower)**  
+- **Mixed percentiles (for example P90 ≈ `pipeline.batch.size`, P50 lower)**  
   Indicates bursty traffic. Larger batches can improve throughput but might increase latency.
 
 - **Queue backpressure context**:
