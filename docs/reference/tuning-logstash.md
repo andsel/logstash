@@ -59,8 +59,8 @@ If you plan to modify the default pipeline settings, take into account the follo
 * On Linux platforms, Logstash labels its threads with descriptive names. For example, inputs show up as `[base]<inputname`, and pipeline workers show up as `[base]>workerN`, where N is an integer. Where possible, other threads are also labeled to help you identify their purpose.
 
 
+## Optimizing batch sizes [batch-size-optimization]
 {applies_to}`stack: preview 9.4.0`
-## Optimizing Batch Sizes [batch-size-optimization]
 
 In a perfectly balanced pipeline, the input and output flow rates are equal. This equilibrium means that every batch read from the queue is completely full, and there is no accumulation within the queue.
 
@@ -100,7 +100,7 @@ Interpretation guidelines:
   Suggests insufficient input volume. Increasing batch size is unlikely to help and may increase latency.
 
 - **Mixed percentiles (e.g., P90 ≈ `pipeline.batch.size`, P50 lower)**  
-  Indicates bursty traffic. Larger batches may improve throughput but can increase latency.
+  Indicates bursty traffic. Larger batches can improve throughput but might increase latency.
 
 - **Queue backpressure context**:
   - Low backpressure + full batches → healthy pipeline; safe to consider increasing batch size or workers.
