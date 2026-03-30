@@ -73,6 +73,12 @@ class BuiltInFlowMetricRetentionPolicies {
         public long maxAgeBarrierNanos(long referenceNanos) {
             return Long.MIN_VALUE;
         }
+
+        @Override
+        public int datapointsCount() {
+            // This policy force to always compact in the unique datapoint it has
+            return 1;
+        }
     };
 
     private static final Set<FlowMetricRetentionPolicy> ALL;
