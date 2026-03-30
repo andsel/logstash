@@ -49,13 +49,7 @@ import java.util.stream.Stream;
 import com.google.common.annotations.VisibleForTesting;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
-import org.jruby.Ruby;
-import org.jruby.RubyArray;
-import org.jruby.RubyBasicObject;
-import org.jruby.RubyBoolean;
-import org.jruby.RubyClass;
-import org.jruby.RubyString;
-import org.jruby.RubySymbol;
+import org.jruby.*;
 import org.jruby.api.Convert;
 import org.jruby.api.Create;
 import org.jruby.anno.JRubyClass;
@@ -353,6 +347,24 @@ public class AbstractPipelineExt extends RubyBasicObject {
         );
 
         return context.nil;
+    }
+
+    /**
+     * Needs to be invoked after initialize_flow_metrics
+     *
+     * @return the occupation of internal structures in bytes or nil if batch metrics are disabled
+     * */
+    @JRubyMethod(name = "estimate_batch_metrics_occupation")
+    public final IRubyObject estimateBatchMetricsInternalStructures(final ThreadContext context) {
+        if (!isBatchMetricsEnabled(context)) {
+            return context.nil;
+//            return context.runtime.newFixnum(0);
+        }
+        int eventCountFootprint = batchEventCountStructureMetric.estimateBatchMetricsFootprintInBytes();
+        int byteSizeFootprint = batchStructureMetric.estimateBatchMetricsFootprintInBytes();
+        int histogramCollectorFootprint = filterQueueClient.estimateBatchMetricsFootprintInBytes();
+        int totalOccupation = eventCountFootprint + byteSizeFootprint + histogramCollectorFootprint;
+        return context.runtime.newFixnum(totalOccupation);
     }
 
     @JRubyMethod(name = "process_events_namespace_metric")
