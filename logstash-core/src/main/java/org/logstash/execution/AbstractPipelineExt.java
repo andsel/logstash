@@ -358,13 +358,27 @@ public class AbstractPipelineExt extends RubyBasicObject {
     public final IRubyObject estimateBatchMetricsInternalStructures(final ThreadContext context) {
         if (!isBatchMetricsEnabled(context)) {
             return context.nil;
-//            return context.runtime.newFixnum(0);
+        }
+
+        return context.runtime.newFixnum(getEstimateBatchMetricsInternalStructures());
+    }
+
+    private int getEstimateBatchMetricsInternalStructures() {
+        if (batchStructureMetric == null) {
+            throw new IllegalStateException("Batch metrics estimation invoked before the internal data structures were instantiated");
         }
         int eventCountFootprint = batchEventCountStructureMetric.estimateBatchMetricsFootprintInBytes();
         int byteSizeFootprint = batchStructureMetric.estimateBatchMetricsFootprintInBytes();
         int histogramCollectorFootprint = filterQueueClient.estimateBatchMetricsFootprintInBytes();
-        int totalOccupation = eventCountFootprint + byteSizeFootprint + histogramCollectorFootprint;
-        return context.runtime.newFixnum(totalOccupation);
+        return eventCountFootprint + byteSizeFootprint + histogramCollectorFootprint;
+    }
+
+    @JRubyMethod(name = "log_batch_metrics_occupation")
+    public final IRubyObject logEstimatedBatchMetricOccupation(final ThreadContext context) {
+        if (isBatchMetricsEnabled(context)) {
+            LOGGER.info("Pipeline `{}` batch metrics estimated memory occupation: {} bytes", pipelineId, getEstimateBatchMetricsInternalStructures());
+        }
+        return context.nil;
     }
 
     @JRubyMethod(name = "process_events_namespace_metric")
