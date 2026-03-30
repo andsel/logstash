@@ -25,6 +25,7 @@ require 'logstash/pipeline_action/reload'
 require "stud/try"
 require 'timeout'
 require "thread"
+require 'java'
 
 class DummyInput < LogStash::Inputs::Base
   config_name "dummyinput"
@@ -390,7 +391,7 @@ describe LogStash::JavaPipeline do
               mutate { add_tag => "miss" }
             }
           }
-        CONFIG
+    CONFIG
 
     context "raise an error when it's evaluated, should cancel the event execution and log the error" do
       context "when type of evaluation doesn't have same type" do
@@ -429,7 +430,7 @@ describe LogStash::JavaPipeline do
                       }
                     }
                   }
-                CONFIG
+        CONFIG
 
         sample_one( [{ "path" => {"to" => {"value" => "101"}}}] ) do
           expect(subject).to be nil
@@ -1130,6 +1131,57 @@ describe LogStash::JavaPipeline do
 
         it "uses the same collector" do
           expect(subject.metric.collector).to be(collector)
+        end
+      end
+
+      context "batch structure metric estimation" do
+        let(:collector) { ::LogStash::Instrument::Collector.new }
+        let(:metric) { ::LogStash::Instrument::Metric.new(collector) }
+
+        let(:sample_occupation) do
+          java_import 'org.HdrHistogram.Recorder'
+          # HistogramMetric uses HdrHistogram with 3 digits precision, so create a sample to have
+          # the rough histogram occupation.
+          sample = Recorder.new(3).interval_histogram
+
+          sample.estimated_footprint_in_bytes
+        end
+
+        # BatchStructureMetric has 4 policies
+        let(:last_1_minute_datapoints) { 60 / 3 }
+        let(:last_5_minutes_datapoints) { 5 * 60 / 15 }
+        let(:last_15_minutes_datapoints) { 15 * 60 / 30 }
+        let(:lifetime_datapoints) { 1 }
+        let(:single_batch_metric_datapoints) do
+          last_1_minute_datapoints + last_5_minutes_datapoints + last_15_minutes_datapoints + lifetime_datapoints
+        end
+
+        # byte size and event count batch metrics has single_batch_metric_datapoints each plus
+        # other 3 datapoints used by the each lifetime histogram metric
+        let(:total_datapoints) { 2 * single_batch_metric_datapoints + 2 * 3 }
+        let(:expected_occupation) { sample_occupation * total_datapoints }
+
+        context "when enabled" do
+          before :each do
+            # enable batch sampling else the batch metrics are not initialized
+            settings.set("pipeline.batch.metrics.sampling_mode", "full")
+          end
+
+          it "should report the expected result" do
+            subject.initialize_flow_metrics
+            expect(subject.estimate_batch_metrics_occupation).to be(expected_occupation)
+          end
+        end
+
+        context "when disabled" do
+          before :each do
+            settings.set("pipeline.batch.metrics.sampling_mode", "disabled")
+          end
+
+          it "must return nil" do
+            subject.initialize_flow_metrics
+            expect(subject.estimate_batch_metrics_occupation).to be_nil
+          end
         end
       end
     end
