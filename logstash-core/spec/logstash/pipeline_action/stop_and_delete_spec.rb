@@ -24,10 +24,12 @@ require "logstash/inputs/generator"
 
 
 describe LogStash::PipelineAction::StopAndDelete do
-  let(:settings) { LogStash::SETTINGS.clone }
   let(:pipeline_config) { "input { dummyblockinginput {} } output { null {} }" }
   let(:pipeline_id) { :main }
-  let(:pipeline) { mock_java_pipeline_from_string(pipeline_config, settings) }
+  let(:pipeline) do
+    # Disable batch metrics mode to avoid having to initialize the entire flow metrics part as well
+    mock_java_pipeline_from_string(pipeline_config, mock_settings("pipeline.batch.metrics.sampling_mode" => "disabled"))
+  end
   let(:pipelines) do
     LogStash::PipelinesRegistry.new.tap do |chm|
       chm.create_pipeline(pipeline_id, pipeline) { true }
@@ -38,8 +40,6 @@ describe LogStash::PipelineAction::StopAndDelete do
   subject { described_class.new(pipeline_id) }
 
   before do
-    # Disable batch metrics mode to avoid having to initialize the entire flow metrics part as well
-    settings.set("pipeline.batch.metrics.sampling_mode", "disabled")
     clear_data_dir
     allow(agent).to receive(:health_observer).and_return(double("HealthObserver").as_null_object)
     pipeline.start
