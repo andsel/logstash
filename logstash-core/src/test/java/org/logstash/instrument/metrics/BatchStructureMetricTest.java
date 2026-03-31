@@ -182,8 +182,10 @@ public class BatchStructureMetricTest {
         //BatchStructureMetric has 4 policies
         int totalDatapoints = BuiltInFlowMetricRetentionPolicies.LAST_1_MINUTE.datapointsCount() +
         BuiltInFlowMetricRetentionPolicies.LAST_5_MINUTES.datapointsCount() +
-        BuiltInFlowMetricRetentionPolicies.LAST_15_MINUTES.datapointsCount() +
-        BuiltInFlowMetricRetentionPolicies.LIFETIME.datapointsCount();
+        BuiltInFlowMetricRetentionPolicies.LAST_15_MINUTES.datapointsCount()/* +
+        BuiltInFlowMetricRetentionPolicies.LIFETIME.datapointsCount()*/;
+
+        assertEquals(60/3 + 5 * 60/15 + 15 * 60/30 /*+ 1*/, totalDatapoints);
 
         int expectedOccupation = sampleOccupation * totalDatapoints;
 

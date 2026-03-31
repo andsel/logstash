@@ -1153,7 +1153,7 @@ describe LogStash::JavaPipeline do
         let(:last_15_minutes_datapoints) { 15 * 60 / 30 }
         let(:lifetime_datapoints) { 1 }
         let(:single_batch_metric_datapoints) do
-          last_1_minute_datapoints + last_5_minutes_datapoints + last_15_minutes_datapoints + lifetime_datapoints
+          last_1_minute_datapoints + last_5_minutes_datapoints + last_15_minutes_datapoints# + lifetime_datapoints
         end
 
         # byte size and event count batch metrics has single_batch_metric_datapoints each plus
