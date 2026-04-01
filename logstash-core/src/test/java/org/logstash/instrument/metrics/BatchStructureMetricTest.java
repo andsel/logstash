@@ -112,7 +112,7 @@ public class BatchStructureMetricTest {
         // Retrieve histogram values and verify values for the time windows
         Map<String, BatchStructureMetric.HistogramMetricData> histogramMap = sut.getValue();
 
-        assertThat("contains just last 1 minute and 5 minutes histograms", histogramMap,
+        assertThat("contains last 1 minute, 5 minutes, and lifetime histograms", histogramMap,
                 allOf(aMapWithSize(3), hasKey("last_1_minute"), hasKey("last_5_minutes"), hasKey("lifetime")));
 
         // Since values are uniformly distributed, we can check expected percentiles
