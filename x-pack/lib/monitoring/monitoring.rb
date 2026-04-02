@@ -189,6 +189,8 @@ module LogStash
         settings.set("pipeline.id", PIPELINE_ID)
         settings.set("config.reload.automatic", false)
         settings.set("metric.collect", false)
+        # Disabling this because batch metric doesn't make sense without metric.collect being enabled.
+        settings.set("pipeline.batch.metrics.sampling_mode", "disabled")
         settings.set("queue.type", "memory")
         settings.set("pipeline.workers", 1) # this is a low throughput pipeline
         settings.set("pipeline.batch.size", 2)
