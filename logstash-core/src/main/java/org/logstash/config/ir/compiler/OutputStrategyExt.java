@@ -194,6 +194,7 @@ public final class OutputStrategyExt {
             final int count = Convert.toInt(context, workerCount.convertToInteger());
             workerQueue = new ArrayBlockingQueue<>(count);
             workers = (RubyArray) Create.allocArray(context, count);
+            workers.eltInternal(0);
             for (int i = 0; i < count; ++i) {
                 final IRubyObject output = ContextualizerExt.initializePlugin(context, executionContext, outputClass, pluginArgs);
                 initOutputCallsite(outputClass);

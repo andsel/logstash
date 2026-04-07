@@ -55,7 +55,9 @@ interface FlowMetricRetentionPolicy {
                                final boolean reportBeforeSatisfied) {
             this.retentionNanos = maximumRetention.toNanos();
             this.resolutionNanos = minimumResolution.toNanos();
-            this.datapointsCount = (int) (retentionNanos / resolutionNanos);
+            // Each window contains also the staging, so
+            // has to be summed up to the bare count of retention / resolution periods.
+            this.datapointsCount = (int) (retentionNanos / resolutionNanos) + 1;
             this.reportBeforeSatisfied = reportBeforeSatisfied;
 
             // we generally rely on query-time compaction, and only perform insertion-time compaction
