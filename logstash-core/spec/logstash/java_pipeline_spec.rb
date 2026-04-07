@@ -1156,7 +1156,7 @@ describe LogStash::JavaPipeline do
         let(:last_1_minute_datapoints) { 60 / 3 }
         let(:last_5_minutes_datapoints) { 5 * 60 / 15 }
         let(:last_15_minutes_datapoints) { 15 * 60 / 30 }
-        let(:lifetime_datapoints) { 1 }
+        let(:lifetime_datapoints) { 2 }
         let(:single_batch_metric_datapoints) do
           last_1_minute_datapoints + last_5_minutes_datapoints + last_15_minutes_datapoints + lifetime_datapoints
         end

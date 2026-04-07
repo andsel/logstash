@@ -382,7 +382,7 @@ public class AbstractPipelineExt extends RubyBasicObject {
     @JRubyMethod(name = "log_batch_metrics_occupation")
     public final IRubyObject logEstimatedBatchMetricOccupation(final ThreadContext context) {
         if (metric.collector(context).isNil() || !getSetting(context, "metric.collect").isTrue()) {
-            LOGGER.warn("Metrics collection is disabled, skipping batch metrics logging");
+            LOGGER.debug("Metrics collection is disabled, skipping batch metrics logging");
             return context.nil;
         }
 
