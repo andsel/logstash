@@ -1169,10 +1169,6 @@ describe LogStash::JavaPipeline do
         context "when enabled" do
           # enable batch sampling else the batch metrics are not initialized
           let(:batch_sampling_mode) { "full" }
-          # before :each do
-          #   # enable batch sampling else the batch metrics are not initialized
-          #   settings.set("pipeline.batch.metrics.sampling_mode", "full")
-          # end
 
           it "should report the expected result" do
             subject.initialize_flow_metrics
@@ -1181,10 +1177,6 @@ describe LogStash::JavaPipeline do
         end
 
         context "when disabled" do
-          # before :each do
-          #   settings.set("pipeline.batch.metrics.sampling_mode", "disabled")
-          # end
-
           it "must return nil" do
             subject.initialize_flow_metrics
             expect(subject.estimate_batch_metrics_occupation).to be_nil
