@@ -1158,11 +1158,11 @@ describe LogStash::JavaPipeline do
         let(:last_15_minutes_datapoints) { 15 * 60 / 30 }
         let(:lifetime_datapoints) { 1 }
         let(:single_batch_metric_datapoints) do
-          last_1_minute_datapoints + last_5_minutes_datapoints + last_15_minutes_datapoints# + lifetime_datapoints
+          last_1_minute_datapoints + last_5_minutes_datapoints + last_15_minutes_datapoints + lifetime_datapoints
         end
 
         # byte size and event count batch metrics has single_batch_metric_datapoints each plus
-        # other 3 datapoints used by the each lifetime histogram metric
+        # other 3 datapoints used by each lifetime histogram metric
         let(:total_datapoints) { 2 * single_batch_metric_datapoints + 2 * 3 }
         let(:expected_occupation) { sample_occupation * total_datapoints }
 
@@ -1241,8 +1241,8 @@ describe LogStash::JavaPipeline do
     end
   end
   context "Pipeline created with too many filters" do
-    # create pipeline with 2000 filters
-    # 2000 filters is more than a thread stack of size 2MB can handle
+    # create pipeline with 2500 filters
+    # 2500 filters is more than a thread stack of size 2MB can handle
     let(:config) do
       <<-EOS
       input { dummy_input {} }
