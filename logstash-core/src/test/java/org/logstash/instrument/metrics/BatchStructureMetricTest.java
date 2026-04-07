@@ -185,7 +185,9 @@ public class BatchStructureMetricTest {
         BuiltInFlowMetricRetentionPolicies.LAST_15_MINUTES.datapointsCount() +
         BuiltInFlowMetricRetentionPolicies.LIFETIME.datapointsCount();
 
-        assertEquals(60/3 + 5 * 60/15 + 15 * 60/30 + 2, totalDatapoints);
+        // 60 seconds retention divided by the solution of 3 seconds, plus the staging accumulator.
+        // The same reasoning applies to 5 a and 15 minutes.
+        assertEquals(60/3 + 1 + 5 * 60/15 + 1 + 15 * 60/30 + 1  + 2, totalDatapoints);
 
         int expectedOccupation = sampleOccupation * totalDatapoints;
 
