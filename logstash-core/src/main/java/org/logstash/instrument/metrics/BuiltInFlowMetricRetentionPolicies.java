@@ -76,8 +76,9 @@ class BuiltInFlowMetricRetentionPolicies {
 
         @Override
         public int datapointsCount() {
-            // This policy force to always compact in the unique datapoint it has
-            return 1;
+            // The lifetime retention window keeps one committed capture and, once updated,
+            // one staged capture prior to compaction/reporting.
+            return 2;
         }
     };
 
