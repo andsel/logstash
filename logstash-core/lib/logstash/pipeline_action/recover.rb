@@ -67,10 +67,13 @@ module LogStash module PipelineAction
 
         # first cleanup the old pipeline
         old_pipeline.shutdown
+        agent.ssl_file_tracker&.deregister(pipeline_id)
 
         # Then create a new pipeline
         new_pipeline = LogStash::JavaPipeline.new(@pipeline_config, @metric, agent)
+        agent.ssl_file_tracker&.register(new_pipeline)
         success = new_pipeline.start # block until the pipeline is correctly started or crashed
+        agent.ssl_file_tracker&.deregister(pipeline_id) unless success
 
         # return success and new_pipeline to registry reload_pipeline
         [success, new_pipeline]
