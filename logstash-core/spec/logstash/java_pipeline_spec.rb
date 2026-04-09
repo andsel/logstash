@@ -1155,6 +1155,9 @@ describe LogStash::JavaPipeline do
         # BatchStructureMetric has 4 policies
         # Each window contains also the staging, so
         # has to be summed up to the bare count of retention / resolution periods.
+        # Note that the calculations correspond to the resolutions per 60 seconds multiplied by the number 
+        # of minutes. For example, for the 5 minute rentention policy:
+        # 60 / 15 (resolution per 60 seconds) * 5 (minutes). The + 1 corresponds to the staging datapoint.
         let(:last_1_minute_datapoints) { 60 / 3 + 1 }
         let(:last_5_minutes_datapoints) { 5 * 60 / 15 + 1}
         let(:last_15_minutes_datapoints) { 15 * 60 / 30 + 1 }
