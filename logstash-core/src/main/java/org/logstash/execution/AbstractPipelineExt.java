@@ -379,15 +379,15 @@ public class AbstractPipelineExt extends RubyBasicObject {
         return eventCountFootprint + byteSizeFootprint + histogramCollectorFootprint;
     }
 
-    @JRubyMethod(name = "log_batch_metrics_occupation")
-    public final IRubyObject logEstimatedBatchMetricOccupation(final ThreadContext context) {
+    @JRubyMethod(name = "log_batch_metrics_memory_consumption")
+    public final IRubyObject logEstimatedBatchMetricMemoryConsumption(final ThreadContext context) {
         if (metric.collector(context).isNil() || !getSetting(context, "metric.collect").isTrue()) {
             LOGGER.debug("Metrics collection is disabled, skipping batch metrics logging");
             return context.nil;
         }
 
         if (isBatchMetricsEnabled(context)) {
-            LOGGER.info("Pipeline `{}` batch metrics estimated memory occupation: {} bytes", pipelineId, getEstimateBatchMetricsInternalStructures());
+            LOGGER.info("Pipeline `{}` batch metrics estimated memory consumption: {} bytes", pipelineId, getEstimateBatchMetricsInternalStructures());
         }
         return context.nil;
     }

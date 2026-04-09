@@ -144,7 +144,7 @@ module LogStash; class JavaPipeline < AbstractPipeline
     @finished_execution.make_false
     @finished_run.make_false
 
-    log_batch_metrics_occupation
+    log_batch_metrics_memory_consumption
 
     @thread = Thread.new do
       error_log_params = ->(e) {
