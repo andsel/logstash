@@ -1146,7 +1146,7 @@ describe LogStash::JavaPipeline do
         let(:sample_occupation) do
           java_import 'org.HdrHistogram.Recorder'
           # HistogramMetric uses HdrHistogram with 3 digits precision, so create a sample to have
-          # the rough histogram occupation.
+          # the rough histogram memory consumption.
           sample = Recorder.new(3).interval_histogram
 
           sample.estimated_footprint_in_bytes
