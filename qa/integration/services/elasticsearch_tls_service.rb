@@ -31,7 +31,7 @@ class ElasticsearchTlsService < Service
       hosts: ["https://localhost:9200"],
       user: "esadmin",
       password: "esadmin123",
-      transport_options: { ssl: { ca_file: ENV["ES_TLS_CA"] } }
+      transport_options: { ssl: { verify: false } }
     )
   end
 end

@@ -277,6 +277,51 @@ describe "TLS hot-reload: SslFileTracker detects cert changes and reloads pipeli
     end
   end
 
+  context "ES output truststore rotation with real Elasticsearch" do
+    let(:truststore_password) { "changeit" }
+
+    def es_client
+      @fixture.get_service("elasticsearch_tls").get_client
+    end
+
+    it "detects truststore change, reloads, and continues sending events to ES" do
+      index_name   = "tls-reload-truststore-test"
+      ts_path      = File.join(work_dir, "es-truststore.p12")
+      create_truststore(@es_ca_v1_cert, ts_path, truststore_password)
+
+      write_pipelines_yml(settings_dir, [{
+        "pipeline.id"   => "main",
+        "config.string" => <<~CFG
+          input  { generator { count => 0 } }
+          output {
+            elasticsearch {
+              hosts => ["https://localhost:9200"]
+              ssl_enabled => true
+              ssl_truststore_path => "#{ts_path}"
+              ssl_truststore_type => "pkcs12"
+              ssl_truststore_password => "#{truststore_password}"
+              user => "esadmin"
+              password => "esadmin123"
+              index => "#{index_name}"
+            }
+          }
+        CFG
+      }])
+
+      spawn_with_reload(logstash_service, settings_dir, work_dir)
+      logstash_service.wait_for_logstash
+      wait_for_es_count(es_client, index_name)
+
+      # Rotate: add v2 CA to the truststore so content changes (triggers SslFileTracker).
+      # ES server cert is still signed by v1, so Logstash stays connected after reload.
+      create_truststore([@es_ca_v1_cert, @es_ca_v2_cert], ts_path, truststore_password)
+
+      wait_for_reload_state(logstash_service, "main", successes: 1)
+      count_before = es_client.count(index: index_name)["count"].to_i
+      wait_for_es_count(es_client, index_name, count: count_before + 1, retries: 30)
+    end
+  end
+
   context "ES output CA cert rotation with real Elasticsearch" do
     def es_client
       @fixture.get_service("elasticsearch_tls").get_client
