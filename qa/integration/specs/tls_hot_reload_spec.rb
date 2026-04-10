@@ -26,7 +26,7 @@ require "fileutils"
 require "yaml"
 require "stud/temporary"
 
-describe "TLS hot-reload: SslFileTracker detects cert changes and reloads pipelines" do
+describe "TLS hot-reload: SslFileTracker detects cert changes and reloads pipelines", :skip_fips do
 
   # Settings helpers
 
