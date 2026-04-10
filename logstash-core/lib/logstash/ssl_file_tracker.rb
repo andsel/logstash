@@ -234,7 +234,9 @@ module LogStash
 
         target.class.get_config.to_a
               .select { |name, opts| PLUGIN_SSL_PATH_CONFIG_NAMES.include?(name.to_s) || (opts[:validate] == :path && name.to_s.start_with?("ssl_")) }
-              .flat_map { |name, _| Array(target.instance_variable_get("@#{name}")) } # flat_map and Array() are for config that returns an array of certs
+              # flat_map and Array() are for config that returns an array of certs
+              # expand_path normalises relative paths so the same file is never tracked twice
+              .flat_map { |name, _| Array(target.instance_variable_get("@#{name}")).map { |p| ::File.expand_path(p) } }
       end.uniq
     end
   end

@@ -191,6 +191,21 @@ describe LogStash::SslFileTracker do
     ensure
       cert.close!
     end
+
+    it "deduplicates relative and absolute paths pointing to the same cert" do
+      Dir.mktmpdir do |dir|
+        cert_path = File.join(dir, "cert.pem")
+        File.write(cert_path, "x")
+        relative  = Pathname.new(cert_path).relative_path_from(Pathname.new(Dir.pwd)).to_s
+
+        register_count = 0
+        allow(file_watch_service).to receive(:register) { register_count += 1 }
+        tracker.register(make_pipeline(:p1, inputs: [make_plugin("ssl_certificate" => cert_path)]))
+        tracker.register(make_pipeline(:p2, inputs: [make_plugin("ssl_certificate" => relative)]))
+
+        expect(register_count).to eq(1)
+      end
+    end
   end
 
   describe "#deregister" do
