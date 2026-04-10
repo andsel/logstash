@@ -47,6 +47,11 @@ describe LogStash::SslFileTracker do
     File.rename(tmp, link)
   end
 
+  def bump_mtime(path)
+    future = Time.now + 1
+    File.utime(future, future, path)
+  end
+
   def make_delegator(inner_plugin)
     dbl = double("delegator")
     allow(dbl).to receive(:ruby_plugin).and_return(inner_plugin)
@@ -301,6 +306,7 @@ describe LogStash::SslFileTracker do
         tracker.register(pipeline)
 
         rotate_symlink(symlink, cert2)
+        bump_mtime(cert2)
         tracker.refresh_symlink_stamps([:main])
 
         expect(tracker.stale_pipelines).to eq([:main])
@@ -356,6 +362,7 @@ describe LogStash::SslFileTracker do
         expect(tracker.stale_pipelines).to be_empty
 
         rotate_symlink(data_link, ts2)
+        bump_mtime(File.join(ts2, "cert.pem"))
         tracker.refresh_symlink_stamps([:main])
 
         expect(tracker.stale_pipelines).to eq([:main])
