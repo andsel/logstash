@@ -49,6 +49,9 @@ module LogStash
       # one entry per path, shared across pipelines, { file_path => WatchedFile(:stamp, :callback, :pipeline_ids, :mode) }
       @watched_files = {}
       @pipeline_ids = Set.new
+      # pipeline IDs whose current cert stamp differs from their registration baseline;
+      # persists until register_paths resets the baseline, so reload failures are retried
+      @stale_pipeline_ids = Set.new
       @mutex = Mutex.new
     end
 
@@ -85,6 +88,7 @@ module LogStash
           baseline[path] = entry.stamp
         end
         @registered_stamps[id] = baseline
+        @stale_pipeline_ids.delete(id)
       end
 
       new_registrations.each do |path, cb|
@@ -117,6 +121,7 @@ module LogStash
 
       @mutex.synchronize do
         @pipeline_ids.delete(pid)
+        @stale_pipeline_ids.delete(pid)
         baseline = @registered_stamps.delete(pid)
         return unless baseline
 
@@ -138,52 +143,56 @@ module LogStash
       end
     end
 
-    # Returns pipeline_ids whose tracked cert files have a different stamp than at registration
-    # @return [Array<Symbol>]
-    def stale_pipelines
-      @mutex.synchronize do
-        @registered_stamps.each_with_object([]) do |(id, baseline), stale|
-          next unless @pipeline_ids.include?(id)
-          stale << id if baseline.any? { |path, stamp| @watched_files[path]&.stamp != stamp }
-        end
-      end
-    end
-
-    # Refreshes the mtime stamp for :poll symlink paths belonging to the given ids.
+    # Refreshes mtime stamps for :poll symlink paths belonging to the given ids,
+    # then returns all IDs (from among the given ids) that are currently stale.
+    # Stale set is accumulated by both poll refreshes and :watch file callbacks.
     # @param ids [Array, Set]
-    # @return [void]
+    # @return [Array<Symbol>] stale IDs from the given set
     def refresh_symlink_stamps(ids)
-      return if ids.empty?
+      return [] if ids.empty?
       id_filter = Set.new(Array(ids).map(&:to_sym))
+
+      # Collect unique poll paths via registered_stamps (targeted lookup)
       polled_paths = @mutex.synchronize do
-        @watched_files.each_with_object([]) do |(path, entry), arr|
-          next unless entry.poll?
-          next if (entry.pipeline_ids & id_filter).empty?
-          arr << path
-        end
+        id_filter.flat_map { |id| (@registered_stamps[id] || {}).keys }
+                 .select { |p| @watched_files[p]&.poll? }
+                 .uniq
       end
+
+      # Stat outside mutex
       new_stamps = polled_paths.to_h { |p| [p, compute_mtime(p)] }.compact
+
       @mutex.synchronize do
-        new_stamps.each do |path, new_stamp|
+        new_stamps.each do |(path, new_stamp)|
           entry = @watched_files[path]
           next if entry.nil? || entry.stamp == new_stamp
           logger.info("Symlink stamp changed", :path => path, :old_stamp => entry.stamp, :new_stamp => new_stamp)
           entry.stamp = new_stamp
+          (entry.pipeline_ids & id_filter).each do |pid|
+            baseline = @registered_stamps[pid]
+            @stale_pipeline_ids.add(pid) if baseline && baseline[path] != entry.stamp
+          end
         end
+        (@stale_pipeline_ids & id_filter).to_a
       end
     end
 
-    # Refreshes symlink stamps for registered pipelines.
-    # @return [void]
+    # Refreshes :poll symlink stamps for all registered pipelines and returns pipeline IDs
+    # whose tracked cert files have changed since registration.
+    # Handles both :poll paths (symlinks, statted on each call) and :watch paths
+    # (regular files updated asynchronously by FileWatchService callbacks).
+    # @return [Array<Symbol>] pipeline IDs that need reloading
     def refresh_pipeline_symlink_stamps
       ids = @mutex.synchronize { @pipeline_ids.dup }
+      return [] if ids.empty?
+
       refresh_symlink_stamps(ids)
     end
 
     private
 
     # Returns a FileChangeCallback lambda that recomputes the SHA-256 checksum of path
-    # and updates the stamp when it differs, marking the owning pipelines as stale.
+    # and updates the stamp when it differs, marking affected pipelines stale.
     def build_callback(path)
       ->(event) {
         new_checksum = compute_checksum(path)
@@ -192,6 +201,10 @@ module LogStash
           if entry && entry.stamp != new_checksum
             logger.info("Certificate changed", :path => path, :old_stamp => entry.stamp, :new_stamp => new_checksum)
             entry.stamp = new_checksum
+            entry.pipeline_ids.each do |pid|
+              baseline = @registered_stamps[pid]
+              @stale_pipeline_ids.add(pid) if baseline && baseline[path] != entry.stamp
+            end
           end
         end
       }
