@@ -19,6 +19,17 @@ require "digest"
 require "set"
 
 module LogStash
+  # Tracks SSL-related file paths referenced by pipelines and reports which
+  # pipelines have become stale and should be reloaded.
+  #
+  # Regular files use WatchService notifications plus SHA-256 checksums so we
+  # only mark a pipeline stale when file content actually changes.
+  #
+  # Symlink paths use mtime polling instead of checksums. In Kubernetes-style
+  # certificate rotation, the configured path often stays as the same symlink
+  # while its target is swapped atomically through ..data links. Polling the
+  # target mtime during converge reliably detects that target change without
+  # reading and hashing the file on every cycle.
   class SslFileTracker
     include LogStash::Util::Loggable
 
@@ -32,10 +43,10 @@ module LogStash
     ].freeze
 
     # Holds all per-path watch state in one place.
-    # stamp:    latest change stamp. SHA-256 string for :watch paths; mtime (Time) for :poll paths.
-    # callback: the FileChangeCallback registered with FileWatchService. nil for polled paths.
-    # pipeline_ids:     Set of pipeline_ids referencing this path. The Java watch is removed only when pipeline_ids is empty.
-    # mode:     :watch for regular files (WatchService-driven), :poll for symlinks (mtime on each converge).
+    # stamp:        latest observed stamp. SHA-256 string for :watch paths; mtime (Time) for :poll paths.
+    # callback:     the FileChangeCallback registered with FileWatchService. nil for polled paths.
+    # pipeline_ids: Set of pipeline_ids referencing this path. The Java watch is removed only when pipeline_ids is empty.
+    # mode:         :watch for regular files (WatchService-driven), :poll for symlinks (mtime on each converge).
     WatchedFile = Struct.new(:stamp, :callback, :pipeline_ids, :mode) do
       def poll?
         mode == :poll
@@ -44,14 +55,14 @@ module LogStash
 
     def initialize(file_watch_service = nil)
       @file_watch_service = file_watch_service
-      # set at registration time, { pipeline_id => { file_path => baseline_stamp } }
-      @registered_stamps = {}
-      # one entry per path, shared across pipelines, { file_path => WatchedFile(:stamp, :callback, :pipeline_ids, :mode) }
-      @watched_files = {}
+      # id includes pipeline_id and xpack service, { id => [file_path] }, tracks which paths each id registered
+      @id_paths = {}
+      # one entry per path, { file_path => WatchedFile(:stamp, :callback, :pipeline_ids, :mode) }, tracks which ids each path registered
+      @path_watched = {}
+      # set of registered pipeline IDs
       @pipeline_ids = Set.new
-      # pipeline IDs whose current cert stamp differs from their registration baseline;
-      # persists until register_paths resets the baseline, so reload failures are retried
-      @stale_pipeline_ids = Set.new
+      # IDs that have detected a cert change since last registration
+      @stale_ids = Set.new
       @mutex = Mutex.new
     end
 
@@ -61,7 +72,7 @@ module LogStash
     # @return [void]
     def register_paths(id, paths)
       id = id.to_sym
-      # Compute stamps { file_path => stamp } before taking the lock (filesystem I/O outside mutex).
+      # Compute stamps before taking the lock so filesystem I/O stays outside the mutex.
       # Symlink paths use mtime; regular files use SHA-256.
       stamps = paths.each_with_object({}) do |p, h|
         h[p] = ::File.symlink?(p) ? compute_mtime(p) : compute_checksum(p)
@@ -69,9 +80,8 @@ module LogStash
       new_registrations = {}
 
       @mutex.synchronize do
-        baseline = {}
         paths.each do |path|
-          entry = @watched_files[path]
+          entry = @path_watched[path]
           if entry.nil?
             if ::File.symlink?(path)
               entry = WatchedFile.new(stamps[path], nil, Set.new, :poll)
@@ -81,14 +91,13 @@ module LogStash
               entry.callback = cb
               new_registrations[path] = cb
             end
-            @watched_files[path] = entry
+            @path_watched[path] = entry
             logger.info("Registered path", :id => id, :path => path, :type => entry.poll? ? "symlink" : "file")
           end
           entry.pipeline_ids.add(id)
-          baseline[path] = entry.stamp
         end
-        @registered_stamps[id] = baseline
-        @stale_pipeline_ids.delete(id)
+        @id_paths[id] = paths
+        @stale_ids.delete(id)
       end
 
       new_registrations.each do |path, cb|
@@ -99,9 +108,8 @@ module LogStash
     # Starts watching all SSL file paths for the pipeline. Paths already watched
     # by another pipeline share the same WatchedFile entry and are not re-registered.
     #
-    # register() is called before pipeline startup so that any cert rotation
-    # occurring during startup is detected and triggers a reload.
-    # The worst case is one redundant reload.
+    # register() is called before pipeline startup so certificate rotation that
+    # happens after registration can be observed and trigger a reload.
     #
     # @param pipeline [JavaPipeline]
     # @return [void]
@@ -121,18 +129,18 @@ module LogStash
 
       @mutex.synchronize do
         @pipeline_ids.delete(pid)
-        @stale_pipeline_ids.delete(pid)
-        baseline = @registered_stamps.delete(pid)
-        return unless baseline
+        @stale_ids.delete(pid)
+        paths = @id_paths.delete(pid)
+        return unless paths
 
-        baseline.each_key do |path|
-          entry = @watched_files[path]
+        paths.each do |path|
+          entry = @path_watched[path]
           next unless entry
 
           entry.pipeline_ids.delete(pid)
           next unless entry.pipeline_ids.empty?
 
-          @watched_files.delete(path)
+          @path_watched.delete(path)
           logger.info("Deregistered path", :pipeline_id => pid, :path => path)
           deregistrations << [path, entry.callback] unless entry.poll?
         end
@@ -143,68 +151,63 @@ module LogStash
       end
     end
 
-    # Refreshes mtime stamps for :poll symlink paths belonging to the given ids,
-    # then returns all IDs (from among the given ids) that are currently stale.
-    # Stale set is accumulated by both poll refreshes and :watch file callbacks.
+    # Refreshes mtime stamps for symlink paths belonging to the given ids.
     # @param ids [Array, Set]
-    # @return [Array<Symbol>] stale IDs from the given set
+    # @return [void]
     def refresh_symlink_stamps(ids)
-      return [] if ids.empty?
-      id_filter = Set.new(Array(ids).map(&:to_sym))
+      return if ids.empty?
+      target_ids = Set.new(Array(ids).map(&:to_sym))
 
-      # Collect unique poll paths via registered_stamps (targeted lookup)
+      # Collect unique polled paths only for the ids.
       polled_paths = @mutex.synchronize do
-        id_filter.flat_map { |id| (@registered_stamps[id] || {}).keys }
-                 .select { |p| @watched_files[p]&.poll? }
+        target_ids.flat_map { |id| @id_paths[id] || [] }
+                 .select { |p| @path_watched[p]&.poll? }
                  .uniq
       end
 
-      # Stat outside mutex
+      # Stat outside the mutex
       new_stamps = polled_paths.to_h { |p| [p, compute_mtime(p)] }.compact
 
+      # Update mtime stamps and mark affected ids as stale.
       @mutex.synchronize do
-        new_stamps.each do |(path, new_stamp)|
-          entry = @watched_files[path]
+        new_stamps.each do |path, new_stamp|
+          entry = @path_watched[path]
           next if entry.nil? || entry.stamp == new_stamp
           logger.info("Symlink stamp changed", :path => path, :old_stamp => entry.stamp, :new_stamp => new_stamp)
           entry.stamp = new_stamp
-          (entry.pipeline_ids & id_filter).each do |pid|
-            baseline = @registered_stamps[pid]
-            @stale_pipeline_ids.add(pid) if baseline && baseline[path] != entry.stamp
-          end
+          @stale_ids.merge(entry.pipeline_ids & target_ids)
         end
-        (@stale_pipeline_ids & id_filter).to_a
       end
     end
 
-    # Refreshes :poll symlink stamps for all registered pipelines and returns pipeline IDs
-    # whose tracked cert files have changed since registration.
-    # Handles both :poll paths (symlinks, statted on each call) and :watch paths
-    # (regular files updated asynchronously by FileWatchService callbacks).
-    # @return [Array<Symbol>] pipeline IDs that need reloading
+    # Refreshes symlink stamps for all registered pipelines.
+    # @return [void]
     def refresh_pipeline_symlink_stamps
       ids = @mutex.synchronize { @pipeline_ids.dup }
-      return [] if ids.empty?
+      return if ids.empty?
 
       refresh_symlink_stamps(ids)
     end
 
+    # Returns pipeline IDs that are currently stale
+    # @return [Array<Symbol>]
+    def stale_pipeline_ids
+      @mutex.synchronize { (@stale_ids & @pipeline_ids).to_a }
+    end
+
     private
 
-    # Returns a FileChangeCallback lambda that recomputes the SHA-256 checksum of path
-    # and updates the stamp when it differs, marking affected pipelines stale.
+    # Returns a FileChangeCallback lambda that recomputes the SHA-256 checksum
+    # for a regular file path and marks affected pipelines stale when it changes.
     def build_callback(path)
       ->(event) {
         new_checksum = compute_checksum(path)
         @mutex.synchronize do
-          entry = @watched_files[path]
+          entry = @path_watched[path]
           if entry && entry.stamp != new_checksum
             logger.info("Certificate changed", :path => path, :old_stamp => entry.stamp, :new_stamp => new_checksum)
             entry.stamp = new_checksum
-            entry.pipeline_ids.each do |pid|
-              baseline = @registered_stamps[pid]
-              @stale_pipeline_ids.add(pid) if baseline && baseline[path] != entry.stamp
-            end
+            @stale_ids.merge(entry.pipeline_ids)
           end
         end
       }
@@ -222,9 +225,9 @@ module LogStash
       nil
     end
 
-    # Returns unique SSL file paths declared across all plugins in the pipeline
-    # Scans each plugin's configs where the config name matches prefix "ssl_" and is a :path type,
-    # or matches the exact name in PLUGIN_SSL_PATH_CONFIG_NAMES
+    # Returns unique SSL file paths declared across all plugins in the pipeline.
+    # Tracks config entries whose name starts with "ssl_" and validates as :path,
+    # plus explicit allowlisted SSL settings whose values may be arrays.
     # @param pipeline [JavaPipeline]
     # @return [Array<String>]
     def ssl_file_paths(pipeline)
@@ -234,8 +237,8 @@ module LogStash
 
         target.class.get_config.to_a
               .select { |name, opts| PLUGIN_SSL_PATH_CONFIG_NAMES.include?(name.to_s) || (opts[:validate] == :path && name.to_s.start_with?("ssl_")) }
-              # flat_map and Array() are for config that returns an array of certs
-              # expand_path normalises relative paths so the same file is never tracked twice
+              # Array() handles config values that may be declared as arrays.
+              # expand_path normalizes relative paths so the same file is never tracked twice.
               .flat_map { |name, _| Array(target.instance_variable_get("@#{name}")).map { |p| ::File.expand_path(p) } }
       end.uniq
     end

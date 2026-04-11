@@ -88,18 +88,21 @@ describe LogStash::SslFileTracker do
 
   shared_examples "two pipelines sharing a path" do
     it "marks both pipelines stale" do
-      expect(tracker.refresh_pipeline_symlink_stamps).to contain_exactly(:p1, :p2)
+      tracker.refresh_pipeline_symlink_stamps
+      expect(tracker.stale_pipeline_ids).to contain_exactly(:p1, :p2)
     end
 
     it "keeps p2 stale after p1 deregisters" do
       tracker.deregister(:p1)
-      expect(tracker.refresh_pipeline_symlink_stamps).to eq([:p2])
+      tracker.refresh_pipeline_symlink_stamps
+      expect(tracker.stale_pipeline_ids).to eq([:p2])
     end
 
     it "clears p1 stale after p1 re-registers but keeps p2 stale" do
       tracker.deregister(:p1)
       tracker.register(make_pipeline(:p1, inputs: [make_plugin("ssl_certificate" => shared_path)]))
-      expect(tracker.refresh_pipeline_symlink_stamps).to eq([:p2])
+      tracker.refresh_pipeline_symlink_stamps
+      expect(tracker.stale_pipeline_ids).to eq([:p2])
     end
   end
 
@@ -234,13 +237,15 @@ describe LogStash::SslFileTracker do
 
   describe "#refresh_pipeline_symlink_stamps" do
     it "returns empty when no pipelines registered" do
-      expect(tracker.refresh_pipeline_symlink_stamps).to be_empty
+      tracker.refresh_pipeline_symlink_stamps
+      expect(tracker.stale_pipeline_ids).to be_empty
     end
 
     it "returns empty immediately after register" do
       cert = Tempfile.new("cert.pem").tap { |f| f.write("content"); f.flush }
       tracker.register(make_pipeline(:main, inputs: [make_plugin("ssl_certificate" => cert.path)]))
-      expect(tracker.refresh_pipeline_symlink_stamps).to be_empty
+      tracker.refresh_pipeline_symlink_stamps
+      expect(tracker.stale_pipeline_ids).to be_empty
     ensure
       cert.close!
     end
@@ -250,7 +255,8 @@ describe LogStash::SslFileTracker do
 
       it "does not mark pipeline stale when file content is unchanged" do
         captured_cb.first.call(file_change_event)
-        expect(tracker.refresh_pipeline_symlink_stamps).to be_empty
+        tracker.refresh_pipeline_symlink_stamps
+        expect(tracker.stale_pipeline_ids).to be_empty
       end
 
       it "returns only the affected pipeline when one of two certs changes" do
@@ -260,7 +266,8 @@ describe LogStash::SslFileTracker do
         rotate_cert
         captured_cb.first.call(file_change_event)
 
-        stale = tracker.refresh_pipeline_symlink_stamps
+        tracker.refresh_pipeline_symlink_stamps
+        stale = tracker.stale_pipeline_ids
         expect(stale).to include(:main)
         expect(stale).not_to include(:p2)
       ensure
@@ -274,23 +281,27 @@ describe LogStash::SslFileTracker do
         end
 
         it "returns pipeline id" do
-          expect(tracker.refresh_pipeline_symlink_stamps).to eq([:main])
+          tracker.refresh_pipeline_symlink_stamps
+          expect(tracker.stale_pipeline_ids).to eq([:main])
         end
 
         it "keeps pipeline stale on repeated calls until re-registered" do
           tracker.refresh_pipeline_symlink_stamps
-          expect(tracker.refresh_pipeline_symlink_stamps).to eq([:main])
+          tracker.refresh_pipeline_symlink_stamps
+          expect(tracker.stale_pipeline_ids).to eq([:main])
         end
 
         it "returns empty after pipeline re-registers with updated baseline" do
           tracker.deregister(:main)
           tracker.register(pipeline)
-          expect(tracker.refresh_pipeline_symlink_stamps).to be_empty
+          tracker.refresh_pipeline_symlink_stamps
+          expect(tracker.stale_pipeline_ids).to be_empty
         end
 
         it "returns empty after pipeline is deregistered" do
           tracker.deregister(:main)
-          expect(tracker.refresh_pipeline_symlink_stamps).to be_empty
+          tracker.refresh_pipeline_symlink_stamps
+          expect(tracker.stale_pipeline_ids).to be_empty
         end
       end
     end
@@ -305,25 +316,29 @@ describe LogStash::SslFileTracker do
       after  { FileUtils.remove_entry(dir) }
 
       it "does not mark pipeline stale when mtime is unchanged" do
-        expect(tracker.refresh_pipeline_symlink_stamps).to be_empty
+        tracker.refresh_pipeline_symlink_stamps
+        expect(tracker.stale_pipeline_ids).to be_empty
       end
 
       it "detects symlink content change" do
         File.write(target, "rotated content")
-        expect(tracker.refresh_pipeline_symlink_stamps).to eq([:main])
+        tracker.refresh_pipeline_symlink_stamps
+        expect(tracker.stale_pipeline_ids).to eq([:main])
       end
 
       it "detects symlink rotation" do
         cert2 = File.join(dir, "cert-2.pem"); File.write(cert2, "rotated")
         rotate_symlink(symlink, cert2)
         bump_mtime(cert2)
-        expect(tracker.refresh_pipeline_symlink_stamps).to eq([:main])
+        tracker.refresh_pipeline_symlink_stamps
+        expect(tracker.stale_pipeline_ids).to eq([:main])
       end
 
       it "does not poll regular file paths" do
         cert = Tempfile.new("cert.pem").tap { |f| f.write("original"); f.flush }
         tracker.register(make_pipeline(:p2, inputs: [make_plugin("ssl_certificate" => cert.path)]))
-        expect(tracker.refresh_pipeline_symlink_stamps).to be_empty
+        tracker.refresh_pipeline_symlink_stamps
+        expect(tracker.stale_pipeline_ids).to be_empty
       ensure
         cert.close!
       end
@@ -339,7 +354,8 @@ describe LogStash::SslFileTracker do
 
         File.write(target1, "v2")
 
-        stale = tracker.refresh_pipeline_symlink_stamps
+        tracker.refresh_pipeline_symlink_stamps
+        stale = tracker.stale_pipeline_ids
         expect(stale).to include(:p1)
         expect(stale).not_to include(:p2)
       end
@@ -348,25 +364,29 @@ describe LogStash::SslFileTracker do
         before { bump_mtime(target) }
 
         it "returns pipeline id" do
-          expect(tracker.refresh_pipeline_symlink_stamps).to eq([:main])
+          tracker.refresh_pipeline_symlink_stamps
+          expect(tracker.stale_pipeline_ids).to eq([:main])
         end
 
         it "keeps pipeline stale on repeated calls until re-registered" do
           tracker.refresh_pipeline_symlink_stamps
-          expect(tracker.refresh_pipeline_symlink_stamps).to eq([:main])
+          tracker.refresh_pipeline_symlink_stamps
+          expect(tracker.stale_pipeline_ids).to eq([:main])
         end
 
         it "returns empty after pipeline is deregistered" do
           tracker.refresh_pipeline_symlink_stamps
           tracker.deregister(:main)
-          expect(tracker.refresh_pipeline_symlink_stamps).to be_empty
+          tracker.refresh_pipeline_symlink_stamps
+          expect(tracker.stale_pipeline_ids).to be_empty
         end
 
         it "returns empty after pipeline re-registers with updated baseline" do
           tracker.refresh_pipeline_symlink_stamps
           tracker.deregister(:main)
           tracker.register(pipeline)
-          expect(tracker.refresh_pipeline_symlink_stamps).to be_empty
+          tracker.refresh_pipeline_symlink_stamps
+          expect(tracker.stale_pipeline_ids).to be_empty
         end
       end
 
@@ -384,11 +404,13 @@ describe LogStash::SslFileTracker do
 
         tracker.register(make_pipeline(:k8s, inputs: [make_plugin("ssl_certificate" => cert_link)]))
 
-        expect(tracker.refresh_pipeline_symlink_stamps).to be_empty
+        tracker.refresh_pipeline_symlink_stamps
+        expect(tracker.stale_pipeline_ids).to be_empty
 
         rotate_symlink(data_link, ts2)
         bump_mtime(File.join(ts2, "cert.pem"))
-        expect(tracker.refresh_pipeline_symlink_stamps).to eq([:k8s])
+        tracker.refresh_pipeline_symlink_stamps
+        expect(tracker.stale_pipeline_ids).to eq([:k8s])
       end
     end
 

@@ -659,17 +659,20 @@ describe LogStash::Agent do
       end
 
       it "returns nil when no pipelines are stale" do
-        allow(agent.ssl_file_tracker).to receive(:refresh_pipeline_symlink_stamps).and_return([])
+        allow(agent.ssl_file_tracker).to receive(:refresh_pipeline_symlink_stamps)
+        allow(agent.ssl_file_tracker).to receive(:stale_pipeline_ids).and_return([])
         expect(agent.send(:converge_reload_ssl, [pipeline_config])).to be_nil
       end
 
       it "returns nil when stale pipeline has no matching config" do
-        allow(agent.ssl_file_tracker).to receive(:refresh_pipeline_symlink_stamps).and_return([:other_pipeline])
+        allow(agent.ssl_file_tracker).to receive(:refresh_pipeline_symlink_stamps)
+        allow(agent.ssl_file_tracker).to receive(:stale_pipeline_ids).and_return([:other_pipeline])
         expect(agent.send(:converge_reload_ssl, [pipeline_config])).to be_nil
       end
 
       it "dispatches a Reload action for each stale pipeline" do
-        allow(agent.ssl_file_tracker).to receive(:refresh_pipeline_symlink_stamps).and_return([:main])
+        allow(agent.ssl_file_tracker).to receive(:refresh_pipeline_symlink_stamps)
+        allow(agent.ssl_file_tracker).to receive(:stale_pipeline_ids).and_return([:main])
         expect(agent).to receive(:converge_state_with_resolved_actions) do |actions|
           expect(actions.size).to eq(1)
           expect(actions.first).to be_a(LogStash::PipelineAction::Reload)
@@ -680,7 +683,8 @@ describe LogStash::Agent do
 
       it "only reloads pipelines that are both stale and present in the config" do
         other_config = mock_pipeline_config(:other, "input { dummyblockinginput {} } output { null {} }")
-        allow(agent.ssl_file_tracker).to receive(:refresh_pipeline_symlink_stamps).and_return([:main, :missing])
+        allow(agent.ssl_file_tracker).to receive(:refresh_pipeline_symlink_stamps)
+        allow(agent.ssl_file_tracker).to receive(:stale_pipeline_ids).and_return([:main, :missing])
         expect(agent).to receive(:converge_state_with_resolved_actions) do |actions|
           expect(actions.map(&:pipeline_id)).to eq([:main])
         end
