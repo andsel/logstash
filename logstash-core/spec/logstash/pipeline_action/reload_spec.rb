@@ -111,12 +111,12 @@ describe LogStash::PipelineAction::Reload do
       expect(subject.execute(agent, pipelines)).not_to be_a_successful_action
     end
 
-    it "deregisters old pipeline, registers new pipeline, then deregisters again on failed start" do
+    it "deregisters old pipeline, registers new pipeline, then does not deregisters again on failed start" do
       tracker = double("ssl_file_tracker")
       allow(agent).to receive(:ssl_file_tracker).and_return(tracker)
       expect(tracker).to receive(:deregister).with(pipeline_id).ordered
       expect(tracker).to receive(:register).ordered
-      expect(tracker).to receive(:deregister).with(pipeline_id).ordered
+      expect(tracker).not_to receive(:deregister).with(pipeline_id).ordered
       subject.execute(agent, pipelines)
     end
   end
