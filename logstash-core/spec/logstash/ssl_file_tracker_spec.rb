@@ -57,16 +57,17 @@ describe LogStash::SslFileTracker do
     dbl
   end
 
-  def make_pipeline(id, inputs: [], filters: [], outputs: [])
+  def make_pipeline(id, inputs: [], filters: [], outputs: [], reloadable: true)
     double("pipeline",
       :pipeline_id => id,
       :inputs      => inputs,
       :filters     => filters,
-      :outputs     => outputs
+      :outputs     => outputs,
+      :reloadable? => reloadable
     )
   end
 
-  shared_context "a watched cert file" do
+  shared_context "a registered cert file pipeline" do
     let(:cert)        { Tempfile.new("cert.pem").tap { |f| f.write("original"); f.flush } }
     let(:plugin)      { make_plugin("ssl_certificate" => cert.path) }
     let(:pipeline)    { make_pipeline(:main, inputs: [plugin]) }
@@ -124,6 +125,20 @@ describe LogStash::SslFileTracker do
   end
 
   describe "#register" do
+    context "with an unreloadable pipeline" do
+      include_context "a registered cert file pipeline"
+
+      let(:pipeline) { make_pipeline(:main, inputs: [plugin], reloadable: false) }
+
+      it "skips unreloadable pipelines" do
+        expect(file_watch_service).not_to have_received(:register)
+
+        rotate_cert
+        tracker.refresh_pipeline_symlink_stamps
+        expect(tracker.stale_pipeline_ids).to be_empty
+      end
+    end
+
     it "registers symlink paths as :poll without FileWatchService registration" do
       Dir.mktmpdir do |dir|
         target  = File.join(dir, "cert-1.pem"); File.write(target, "original")
@@ -251,7 +266,7 @@ describe LogStash::SslFileTracker do
     end
 
     context "watch mode (regular files via FileWatchService)" do
-      include_context "a watched cert file"
+      include_context "a registered cert file pipeline"
 
       it "does not mark pipeline stale when file content is unchanged" do
         captured_cb.first.call(file_change_event)

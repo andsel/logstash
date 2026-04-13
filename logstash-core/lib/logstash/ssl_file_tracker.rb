@@ -114,6 +114,11 @@ module LogStash
     # @param pipeline [JavaPipeline]
     # @return [void]
     def register(pipeline)
+      unless pipeline.reloadable?
+        logger.debug("Skipping SSL file tracking for unreloadable pipeline", :pipeline_id => pipeline.pipeline_id)
+        return
+      end
+
       pid = pipeline.pipeline_id.to_sym
       register_paths(pid, ssl_file_paths(pipeline))
       @mutex.synchronize { @pipeline_ids.add(pid) }
