@@ -61,6 +61,18 @@ If you plan to modify the default pipeline settings, take into account the follo
 * Threads in Java have names and you can use the `jstack`, `top`, and the VisualVM graphical tools to figure out which resources a given thread uses.
 * On Linux platforms, Logstash labels its threads with descriptive names. For example, inputs show up as `[base]<inputname`, and pipeline workers show up as `[base]>workerN`, where N is an integer. Where possible, other threads are also labeled to help you identify their purpose.
 
+::::{note}
+Enabling `pipeline.batch.metrics.sampling_mode` generate an increase in the heap consumption for each pipeline. This consumption can be discovered enabling debug log for `[org.logstash.execution.AbstractPipelineExt` logger and searching the logs for a string like:
+```shell
+batch metrics estimated memory occupation
+```
+
+which prints an estimation of the consumed memory spent to track batch structural metrics for each pipeline.
+::::
+
+
+
+
 
 ## Optimizing batch sizes [batch-size-optimization]
 {applies_to}`stack: preview 9.4.0`
