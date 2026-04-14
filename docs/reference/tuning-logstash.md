@@ -62,12 +62,15 @@ If you plan to modify the default pipeline settings, take into account the follo
 * On Linux platforms, Logstash labels its threads with descriptive names. For example, inputs show up as `[base]<inputname`, and pipeline workers show up as `[base]>workerN`, where N is an integer. Where possible, other threads are also labeled to help you identify their purpose.
 
 ::::{note}
-Enabling `pipeline.batch.metrics.sampling_mode` generate an increase in the heap consumption for each pipeline. This consumption can be discovered enabling debug log for `[org.logstash.execution.AbstractPipelineExt` logger and searching the logs for a string like:
+Enabling `pipeline.batch.metrics.sampling_mode` leads to increased heap consumption for each pipeline. You can identify this increased consumption by enabling debug logging for the `org.logstash.execution.AbstractPipelineExt` logger and searching the logs for a specific string like:
+
 ```shell
-batch metrics estimated memory occupation
+[2026-03-30T17:28:45,791][INFO ][org.logstash.execution.AbstractPipelineExt] Pipeline `main` batch metrics estimated memory occupation
 ```
 
-which prints an estimation of the consumed memory spent to track batch structural metrics for each pipeline.
+The system estimates and logs the memory consumed by tracking structural metrics for each pipeline batch.
+
+You can globally disable batch metrics sampling by setting `pipeline.batch.metrics.sampling_mode` to disabled in [logstash.yml](/reference/logstash-settings-file.md). To enable it for specific pipelines, configure this setting per pipeline in [pipelines.yml](/reference/multiple-pipelines.md).
 ::::
 
 
