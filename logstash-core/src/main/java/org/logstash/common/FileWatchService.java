@@ -31,25 +31,18 @@ public final class FileWatchService implements Closeable {
 
     private static final Logger logger = LogManager.getLogger(FileWatchService.class);
 
-    // Callback invoked on the watcher thread when a watched file changes
+    /**
+     * Callback invoked on the watcher thread when a watched file changes.
+     * Implementations must return quickly. A blocking callback delays key reset
+     * and dispatch of subsequent file events.
+     */
     @FunctionalInterface
     public interface FileChangeCallback {
         void onChange(FileChangeEvent event);
     }
 
-    // Carries the absolute path and event kind, ENTRY_CREATE and ENTRY_MODIFY, for a file change notification
-    public static final class FileChangeEvent {
-        private final Path path;
-        private final WatchEvent.Kind<?> kind;
-
-        FileChangeEvent(final Path path, final WatchEvent.Kind<?> kind) {
-            this.path = path;
-            this.kind = kind;
-        }
-
-        public Path path() { return path; }
-        public WatchEvent.Kind<?> kind() { return kind; }
-    }
+    // Carries the absolute path and event kind, ENTRY_CREATE or ENTRY_MODIFY, for a file change notification
+    public static record FileChangeEvent(Path path, WatchEvent.Kind<?> kind) { }
 
     private static final class WatchedDir {
         final WatchKey key;
@@ -153,8 +146,10 @@ public final class FileWatchService implements Closeable {
                 key = watchService.take();
             } catch (final InterruptedException e) {
                 Thread.currentThread().interrupt();
+                logger.debug("Watcher loop exiting after interruption");
                 return;
             } catch (final ClosedWatchServiceException e) {
+                logger.debug("Watcher loop exiting because watch service was closed");
                 return;
             }
 
@@ -168,10 +163,7 @@ public final class FileWatchService implements Closeable {
         }
     }
 
-    /**
-     * Dispatches notifications to callbacks registered for {@code absPath}.
-     * {@code kind} is one of {@code ENTRY_CREATE} or {@code ENTRY_MODIFY}.
-     */
+    // Dispatches notifications for already-filtered file events.
     private void fireCallbacks(final Path absPath, final WatchEvent.Kind<?> kind) {
         final CopyOnWriteArrayList<FileChangeCallback> callbacks = filepathCallbacks.get(absPath);
         if (callbacks == null) return;
