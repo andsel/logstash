@@ -12,9 +12,12 @@ import java.nio.file.StandardWatchEventKinds;
 import java.nio.file.WatchEvent;
 import java.nio.file.WatchKey;
 import java.nio.file.WatchService;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArrayList;
-import java.util.concurrent.atomic.AtomicBoolean;
 
 /**
  * Watches files for changes using the OS-level NIO {@link WatchService} and dispatches
@@ -46,7 +49,7 @@ public final class FileWatchService implements Closeable {
 
     private static final class WatchedDir {
         final WatchKey key;
-        final CopyOnWriteArrayList<Path> files = new CopyOnWriteArrayList<>();
+        final Set<Path> files = new HashSet<>();
 
         WatchedDir(final WatchKey key) {
             this.key = key;
@@ -55,12 +58,10 @@ public final class FileWatchService implements Closeable {
 
     private final WatchService watchService;
     // absolute directory -> WatchedDir(WatchKey, registered file paths)
-    private final ConcurrentHashMap<Path, WatchedDir> watchedDirs = new ConcurrentHashMap<>();
+    private final Map<Path, WatchedDir> watchedDirs = new HashMap<>();
     // absolute file path -> callbacks
     private final ConcurrentHashMap<Path, CopyOnWriteArrayList<FileChangeCallback>> filepathCallbacks = new ConcurrentHashMap<>();
     private volatile Thread watcherThread;
-    // guards a single start of watcherThread
-    private final AtomicBoolean started = new AtomicBoolean(false);
 
     private FileWatchService(final WatchService watchService) {
         this.watchService = watchService;
@@ -93,7 +94,7 @@ public final class FileWatchService implements Closeable {
             watchedDir.files.add(fileAbsPath);
             logger.debug("Watching file {}", fileAbsPath);
         }
-        if (started.compareAndSet(false, true)) {
+        if (watcherThread == null) {
             watcherThread = new Thread(this::watcherLoop, "core-file-watch-service");
             watcherThread.setDaemon(true);
             watcherThread.start();
