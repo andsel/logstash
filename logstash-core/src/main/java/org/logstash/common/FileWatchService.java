@@ -18,6 +18,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.concurrent.atomic.AtomicLong;
 
 /**
  * Watches files for changes using the OS-level NIO {@link WatchService} and dispatches
@@ -33,6 +34,7 @@ import java.util.concurrent.CopyOnWriteArrayList;
 public final class FileWatchService implements Closeable {
 
     private static final Logger logger = LogManager.getLogger(FileWatchService.class);
+    private static final AtomicLong THREAD_COUNTER = new AtomicLong(0L);
 
     /**
      * Callback invoked on the watcher thread when a watched file changes.
@@ -75,7 +77,8 @@ public final class FileWatchService implements Closeable {
      * Registers {@code callback} to be invoked whenever {@code filePath} changes.
      * Multiple callbacks may be registered for the same path. If the parent directory
      * is not yet watched, a new {@link WatchKey} is created for it. The watcher thread
-     * is started on the first call.
+     * is started on the first call. Callbacks run on the watcher thread and must
+     * stay fast and non-blocking.
      */
     public synchronized void register(final Path filePath, final FileChangeCallback callback) throws IOException {
         final Path fileAbsPath = filePath.toAbsolutePath();
@@ -95,7 +98,7 @@ public final class FileWatchService implements Closeable {
             logger.debug("Watching file {}", fileAbsPath);
         }
         if (watcherThread == null) {
-            watcherThread = new Thread(this::watcherLoop, "core-file-watch-service");
+            watcherThread = new Thread(this::watcherLoop, "core-file-watch-service-" + THREAD_COUNTER.incrementAndGet());
             watcherThread.setDaemon(true);
             watcherThread.start();
             logger.info("Watcher thread started");
