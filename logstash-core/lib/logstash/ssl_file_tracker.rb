@@ -46,10 +46,61 @@ module LogStash
     # stamp:        latest observed stamp. SHA-256 string for :watch paths; mtime (Time) for :poll paths.
     # callback:     the FileChangeCallback registered with FileWatchService. nil for polled paths.
     # pipeline_ids: Set of pipeline_ids referencing this path. The Java watch is removed only when pipeline_ids is empty.
-    # mode:         :watch for regular files (WatchService-driven), :poll for symlinks (mtime on each converge).
-    WatchedFile = Struct.new(:stamp, :callback, :pipeline_ids, :mode) do
+    class ObservableFile
+
+      attr_reader :stamp, :pipeline_ids
+
+      def initialize(stamp)
+        @stamp = stamp
+        @pipeline_ids = Set.new
+      end
+
+      def register_pipeline(pipeline_id)
+        @pipeline_ids.add(pipeline_id)
+      end
+
+      def deregister_pipeline(pipeline_id)
+        @pipeline_ids.delete(pipeline_id)
+        @pipeline_ids.is_empty?
+      end
+
+      # Return true if stamp was changed
+      def update_stamp(new_timestamp)
+        false if @stamp == new_timestamp
+
+        @stamp = new_timestamp
+        true
+      end
+    end
+
+    class PollFile < ObservableFile
+
+      def initialize(stamp)
+        super(stamp)
+      end
+
       def poll?
-        mode == :poll
+        true
+      end
+
+      def type
+        "symlink"
+      end
+    end
+
+    class WatchedFile < ObservableFile
+
+      def initialize(stamp, callback)
+        super(stamp)
+        @callback = callback
+      end
+
+      def poll?
+        false
+      end
+
+      def type
+        "file"
       end
     end
 
@@ -84,17 +135,16 @@ module LogStash
           entry = @path_watched[path]
           if entry.nil?
             if ::File.symlink?(path)
-              entry = WatchedFile.new(stamps[path], nil, Set.new, :poll)
+              entry = PollFile.new(stamps[path])
             else
-              entry = WatchedFile.new(stamps[path], nil, Set.new, :watch)
-              cb = build_callback(path)
-              entry.callback = cb
-              new_registrations[path] = cb
+              callback = build_callback(path)
+              entry = WatchedFile.new(stamps[path], callback)
+              new_registrations[path] = callback
             end
             @path_watched[path] = entry
-            logger.info("Registered path", :id => id, :path => path, :type => entry.poll? ? "symlink" : "file")
+            logger.info("Registered path", :id => id, :path => path, :type => entry.type)
           end
-          entry.pipeline_ids.add(id)
+          entry.register_pipeline(id)
         end
         @id_paths[id] = paths
         @stale_ids.delete(id)
@@ -142,8 +192,8 @@ module LogStash
           entry = @path_watched[path]
           next unless entry
 
-          entry.pipeline_ids.delete(pid)
-          next unless entry.pipeline_ids.empty?
+          is_empty = entry.deregister_pipeline(pid)
+          next unless is_empty
 
           @path_watched.delete(path)
           logger.info("Deregistered path", :pipeline_id => pid, :path => path)
@@ -209,9 +259,8 @@ module LogStash
         new_checksum = compute_checksum(path)
         @mutex.synchronize do
           entry = @path_watched[path]
-          if entry && entry.stamp != new_checksum
+          if entry && entry.update_stamp(new_checksum)
             logger.info("Certificate changed", :path => path, :old_stamp => entry.stamp, :new_stamp => new_checksum)
-            entry.stamp = new_checksum
             @stale_ids.merge(entry.pipeline_ids)
           end
         end
